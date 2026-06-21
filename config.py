@@ -67,6 +67,9 @@ WAIFU_PICS = [
     if url.strip()
 ]
 
+import os as _os
+START_PIC = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "YUKIWAFUS", "assets", "start.png")
+
 FIRE_EMOJI = "🔥"
 
 # ── URL Validation — fail fast on boot if links are wrong ─────────────────────

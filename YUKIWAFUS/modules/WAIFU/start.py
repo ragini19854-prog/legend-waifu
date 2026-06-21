@@ -7,6 +7,8 @@ from html import escape
 from pyrogram import Client, filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
+import os
+
 import config
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import usersdb, chatsdb, onoffdb
@@ -41,6 +43,7 @@ GROUP_REACTION_EMOJI = getattr(config, "GROUP_REACTION_EMOJI", "❤️")
 FIRE_EMOJI           = getattr(config, "FIRE_EMOJI",           "🔥")
 
 WAIFU_PICS = getattr(config, "WAIFU_PICS", ["https://files.catbox.moe/08ge3a.jpg"])
+START_PIC  = getattr(config, "START_PIC", None)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -207,6 +210,38 @@ async def send_magic_start(
     if effect_id is None:
         effect_id = EFFECT_HEARTS
 
+    _is_local = photo_url and os.path.isfile(photo_url)
+
+    def _build_rows():
+        rows = []
+        for row in raw_kb:
+            r = []
+            for b in row:
+                if b.get("callback_data"):
+                    r.append(InlineKeyboardButton(b["text"], callback_data=b["callback_data"]))
+                elif b.get("url"):
+                    r.append(InlineKeyboardButton(b["text"], url=b["url"]))
+            if r:
+                rows.append(r)
+        return rows
+
+    # ── Local file: skip Bot API, go straight to Pyrogram ────────────────────
+    if _is_local:
+        try:
+            rows = _build_rows()
+            msg = await app.send_photo(
+                chat_id,
+                photo=photo_url,
+                caption=caption,
+                has_spoiler=True,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup(rows) if rows else None,
+            )
+            return msg.id
+        except Exception:
+            pass
+        return None
+
     payload = {
         "chat_id":           chat_id,
         "photo":             photo_url,
@@ -237,17 +272,7 @@ async def send_magic_start(
 
     # ── Try 3: Pyrogram fallback (no effect, plain Pyrogram buttons) ──────────
     try:
-        rows = []
-        for row in raw_kb:
-            r = []
-            for b in row:
-                if b.get("callback_data"):
-                    r.append(InlineKeyboardButton(b["text"], callback_data=b["callback_data"]))
-                elif b.get("url"):
-                    r.append(InlineKeyboardButton(b["text"], url=b["url"]))
-            if r:
-                rows.append(r)
-
+        rows = _build_rows()
         msg = await app.send_photo(
             chat_id,
             photo=photo_url,
@@ -374,7 +399,7 @@ async def start_private(client: Client, message: Message):
 
     sent_id = await send_magic_start(
         chat_id,
-        random.choice(WAIFU_PICS),
+        START_PIC or random.choice(WAIFU_PICS),
         caption,
         _private_panel(),
         effect_id=EFFECT_HEARTS,
@@ -434,7 +459,7 @@ async def start_group(client: Client, message: Message):
 
     msg_id = await send_magic_start(
         chat_id,
-        random.choice(WAIFU_PICS),
+        START_PIC or random.choice(WAIFU_PICS),
         caption,
         _group_panel(),
         reply_to_id=message.id,
