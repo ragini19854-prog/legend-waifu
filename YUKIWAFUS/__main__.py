@@ -6,21 +6,23 @@ import logging
 from pyrogram import idle
 
 import config
-from YUKIWAFUS import app
+from YUKIWAFUS.bot import app          # ← correct import
 from YUKIWAFUS.modules import ALL_MODULES
 
+# Per‑module logger
 _log = logging.getLogger(__name__)
 
 
 async def init():
     await app.start()
 
-    failed  = []
-    loaded  = []
+    failed = []
+    loaded = []
 
+    # Load all modules dynamically
     for module in ALL_MODULES:
         try:
-            importlib.import_module("YUKIWAFUS.modules." + module)
+            importlib.import_module(f"YUKIWAFUS.modules.{module}")
             loaded.append(module)
             _log.info(f"  ✓ {module}")
         except Exception as e:
@@ -41,11 +43,12 @@ async def init():
         "╚═════ஜ۩۞۩ஜ════╝"
     )
 
+    # Send failed modules to LOG_CHANNEL
     if failed and getattr(config, "LOG_CHANNEL", 0):
         try:
             await app.send_message(
                 config.LOG_CHANNEL,
-                f"<blockquote>⚠️ <b>Failed to load modules:</b></blockquote>\n\n"
+                "<blockquote>⚠️ <b>Failed to load modules:</b></blockquote>\n\n"
                 + "\n".join(f"• <code>{m}</code>" for m in failed),
                 parse_mode="html",
             )
@@ -55,7 +58,8 @@ async def init():
     await idle()
     await app.stop()
     _log.info("YUKIWAFUS Stopped.")
-
+    
 
 if __name__ == "__main__":
     asyncio.get_event_loop().run_until_complete(init())
+
