@@ -1,14 +1,15 @@
 import asyncio
 import importlib
 import traceback
+import logging
 
 from pyrogram import idle
 
 import config
-from YUKIWAFUS import LOGGER, app
+from YUKIWAFUS import app
 from YUKIWAFUS.modules import ALL_MODULES
 
-_log = LOGGER(__name__)
+_log = logging.getLogger(__name__)
 
 
 async def init():
@@ -40,7 +41,6 @@ async def init():
         "╚═════ஜ۩۞۩ஜ════╝"
     )
 
-    # Log failed modules to LOG_CHANNEL if any
     if failed and getattr(config, "LOG_CHANNEL", 0):
         try:
             await app.send_message(
@@ -59,4 +59,3 @@ async def init():
 
 if __name__ == "__main__":
     asyncio.get_event_loop().run_until_complete(init())
-    
