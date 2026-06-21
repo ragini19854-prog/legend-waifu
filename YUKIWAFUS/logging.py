@@ -41,5 +41,6 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.ERROR)
 logging.getLogger("apscheduler").setLevel(logging.ERROR)
 
-# ✔ FIX: LOGGER must be a logger instance, not a function
-LOGGER = logging.getLogger("LegendWaifu")
+def LOGGER(name: str) -> logging.Logger:
+    """Return a named logger. Keeps LOGGER(__name__) usage working everywhere."""
+    return logging.getLogger(name)

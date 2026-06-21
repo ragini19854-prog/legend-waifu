@@ -4,6 +4,8 @@ from os.path import basename, dirname, isfile, relpath
 
 from YUKIWAFUS.logging import LOGGER
 
+_log = LOGGER(__name__)
+
 
 def _list_all_modules():
     base = dirname(__file__)
@@ -24,7 +26,7 @@ def _list_all_modules():
 
 
 ALL_MODULES = _list_all_modules()
-LOGGER.info(f"Modules found: {ALL_MODULES}")
+_log.info(f"Modules found: {ALL_MODULES}")
 
 __all__ = ALL_MODULES + ["ALL_MODULES"]
 
