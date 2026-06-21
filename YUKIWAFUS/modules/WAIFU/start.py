@@ -69,7 +69,7 @@ _START_PRIVATE = (
     "<blockquote>"
     "<b><emoji id='6294023338176028117'>💀</emoji> "
     "✦ᴘᴏᴡєʀєᴅ ʙʏ » "
-    "<spoiler>── ᴍᴀᴅᴀʀᴀ ᴡᴀɪғᴜ ──</spoiler>"
+    "<spoiler>── ᴍᴀᴅᴀʀᴀ ──</spoiler>"
     "</b>"
     "</blockquote>\n"
     "•──────────────────────•"
