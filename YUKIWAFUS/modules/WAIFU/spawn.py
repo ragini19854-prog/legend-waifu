@@ -123,31 +123,33 @@ async def count_messages(client: Client, message: Message):
         return
 
     # ── Per-user spam gate ────────────────────────────────────────────────────
-    if user_id:
-        just_blocked = _check_rate(chat_id, user_id)
+    if not user_id:
+        return
 
-        if just_blocked:
-            key = (chat_id, user_id)
-            if key not in _warned_users:
-                _warned_users.add(key)
-                name = message.from_user.first_name or "User"
-                warn = await message.reply_text(
-                    f"<blockquote>"
-                    f"<emoji id='6001602353843672777'>⚠️</emoji> "
-                    f"<b>{sc('Hey')} {name}, {sc('slow down')}!</b>\n\n"
-                    f"{sc('You are sending messages too fast')}.\n"
-                    f"{sc('Your messages will')} <b>{sc('not count')}</b> "
-                    f"{sc('toward waifu spawns for the next')} <b>5 {sc('minutes')}</b>.\n\n"
-                    f"<i>{sc('Spamming will not make waifus spawn faster')} — "
-                    f"{sc('it will only delay them for you')}.</i>"
-                    f"</blockquote>",
-                    parse_mode=enums.ParseMode.HTML,
-                )
-                asyncio.create_task(_delete_later(warn, 30))
-            return
+    just_blocked = _check_rate(chat_id, user_id)
 
-        if _is_blocked(chat_id, user_id):
-            return
+    if just_blocked:
+        key = (chat_id, user_id)
+        if key not in _warned_users:
+            _warned_users.add(key)
+            name = message.from_user.first_name or "User"
+            warn = await message.reply_text(
+                f"<blockquote>"
+                f"<emoji id='6001602353843672777'>⚠️</emoji> "
+                f"<b>{sc('Hey')} {name}, {sc('slow down')}!</b>\n\n"
+                f"{sc('You are sending messages too fast')}.\n"
+                f"{sc('Your messages will')} <b>{sc('not count')}</b> "
+                f"{sc('toward waifu spawns for the next')} <b>5 {sc('minutes')}</b>.\n\n"
+                f"<i>{sc('Spamming will not make waifus spawn faster')} — "
+                f"{sc('it will only delay them for you')}.</i>"
+                f"</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            )
+            asyncio.create_task(_delete_later(warn, 30))
+        return
+
+    if _is_blocked(chat_id, user_id):
+        return
 
     # ── Chat-level cooldown ───────────────────────────────────────────────────
     now = time.time()
@@ -220,6 +222,7 @@ async def spawn_waifu(client: Client, chat_id: int):
             **waifu,
             "message_id": msg.id,
             "chat_id":    chat_id,
+            "timestamp":  time.time(),
         }
 
         await asyncio.sleep(SPAWN_TIMEOUT)
@@ -243,7 +246,7 @@ async def spawn_waifu(client: Client, chat_id: int):
 @app.on_message(filters.command("spawnon") & filters.group)
 async def spawnon_handler(client: Client, message: Message):
     member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status.value not in ("administrator", "creator"):
+    if member.status.value not in ("administrator", "owner"):
         return await message.reply_text(f"❌ {sc('Admins only!')}")
 
     await set_chat_spawn(message.chat.id, True)
@@ -253,7 +256,7 @@ async def spawnon_handler(client: Client, message: Message):
 @app.on_message(filters.command("spawnoff") & filters.group)
 async def spawnoff_handler(client: Client, message: Message):
     member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status.value not in ("administrator", "creator"):
+    if member.status.value not in ("administrator", "owner"):
         return await message.reply_text(f"❌ {sc('Admins only!')}")
 
     await set_chat_spawn(message.chat.id, False)
@@ -280,7 +283,7 @@ async def fspawn_handler(client: Client, message: Message):
 @app.on_message(filters.command("setspawn") & filters.group)
 async def setspawn_handler(client: Client, message: Message):
     member = await client.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status.value not in ("administrator", "creator"):
+    if member.status.value not in ("administrator", "owner"):
         return await message.reply_text(f"❌ {sc('Admins only!')}")
 
     if len(message.command) < 2:

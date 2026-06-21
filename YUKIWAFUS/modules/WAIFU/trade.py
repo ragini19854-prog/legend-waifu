@@ -345,15 +345,6 @@ async def _execute_trade(client, cq, doc, user_a, user_b):
         pass
 
 
-def waifu_line(waifu: dict) -> str:
-    rarity = waifu.get("rarity", "Common")
-    emoji  = RARITY_EMOJI.get(rarity, "◈")
-    return (
-        f"📛 <b>{escape(waifu.get('name', 'Unknown'))}</b> "
-        f"{emoji} <code>{rarity}</code>"
-    )
-
-
 # ── Cancel callback ───────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^trade_cancel:"))
 async def trade_cancel_cb(client: Client, cq: CallbackQuery):

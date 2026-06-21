@@ -242,10 +242,9 @@ async def battle_accept(client: Client, cq: CallbackQuery):
     photo = winner_waifu["img_url"] if winner_waifu else challenger_waifu["img_url"]
 
     try:
+        from pyrogram.types import InputMediaPhoto
         await cq.message.edit_media(
-            media=__import__("pyrogram.types", fromlist=["InputMediaPhoto"]).InputMediaPhoto(
-                photo, caption=text, parse_mode=enums.ParseMode.HTML
-            )
+            media=InputMediaPhoto(photo, caption=text, parse_mode=enums.ParseMode.HTML)
         )
     except Exception:
         await cq.message.reply_photo(photo=photo, caption=text, parse_mode=enums.ParseMode.HTML)

@@ -180,11 +180,14 @@ async def harem_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    await asyncio.sleep(AUTO_DELETE)
-    try:
-        await msg.delete()
-    except Exception:
-        pass
+    async def _auto_delete():
+        await asyncio.sleep(AUTO_DELETE)
+        try:
+            await msg.delete()
+        except Exception:
+            pass
+
+    asyncio.create_task(_auto_delete())
 
 
 # ── Harem Pagination Callback ─────────────────────────────────────────────────

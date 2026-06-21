@@ -69,9 +69,8 @@ _START_PRIVATE = (
     "<blockquote>"
     "<b><emoji id='6294023338176028117'>💀</emoji> "
     "✦ᴘᴏᴡєʀєᴅ ʙʏ » "
-    "<a href='https://t.me/yukiwafus'>"
-    "<spoiler>── ʏᴜᴋɪ ᴡᴀғᴜs ──</spoiler>"
-    "</a></b>"
+    "<spoiler>── ᴍᴀᴅᴀʀᴀ ᴡᴀɪғᴜ ──</spoiler>"
+    "</b>"
     "</blockquote>\n"
     "•──────────────────────•"
 )
@@ -234,6 +233,18 @@ async def send_magic_start(
                 photo=photo_url,
                 caption=caption,
                 has_spoiler=True,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup(rows) if rows else None,
+            )
+            return msg.id
+        except Exception:
+            pass
+        # Fallback to text if local photo send fails
+        try:
+            rows = _build_rows()
+            msg = await app.send_message(
+                chat_id,
+                caption,
                 parse_mode=enums.ParseMode.HTML,
                 reply_markup=InlineKeyboardMarkup(rows) if rows else None,
             )

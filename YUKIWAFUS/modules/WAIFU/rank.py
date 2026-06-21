@@ -293,5 +293,5 @@ async def ctop_cmd(client: Client, message: Message):
         caption     = text,
         parse_mode  = enums.ParseMode.HTML,
         has_spoiler = True,
-  )
+    )
   

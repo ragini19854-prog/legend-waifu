@@ -179,7 +179,8 @@ async def delwaifu_handler(client: Client, message: Message):
         return await message.reply_text("Usage: <code>/delwaifu &lt;name&gt;</code>", parse_mode=enums.ParseMode.HTML)
 
     processing = await message.reply_text(f"🗑 Deleting <b>{escape(name)}</b>...", parse_mode=enums.ParseMode.HTML)
-    result = await __import__("YUKIWAFUS.utils.api", fromlist=["delete_waifu"]).delete_waifu(
+    from YUKIWAFUS.utils.api import delete_waifu
+    result = await delete_waifu(
         api_key=config.WAIFU_API_KEY,
         name=name,
     )
