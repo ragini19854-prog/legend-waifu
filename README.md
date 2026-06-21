@@ -1,7 +1,56 @@
-👁‍🗨 MADARAWAFUS👁‍🗨 A dominant Telegram waifu collection bot — summon, build your empire, trade & wage war with your waifus!Engineered with Pyrogram · MongoDB · Async Framework · Absolute Anti-Spam Defense🔥 Unique Features☄️ Chakra Manifestation (Auto Spawn) — Waifus materialize dynamically based on active group conversation density.🎯 Sharingan Precision (Smart Guess) — High-performance fuzzy matching string algorithms supporting multi-word inputs.⚔️ Shinobi Showdown (Battle System) — Intense 1v1 combat calculations utilizing core waifu stats and tier hierarchies.🗂 The Imperial Harem — Clean, paginated inline menus to browse your total captured army.❤️ Vanguard (Favourites) — Pin up to 5 elite waifus directly to the peak of your profile layout.🔄 Tactical Exchange (2-Way Trade) — Bulletproof trading protocols complete with real-time confirmation checks.🩸 Uchiha Economy — Amass chakra coins, claim regular tributes, and dominate global net-worth boards.🛡 Absolute Susanoo Protection (Anti-Spam) — Rate limiting modules that completely neutralize spawn farming bots.🗂 Project ArchitectureMADARAWAFUS/
+<div align="center">
+
+<img src="https://i.ibb.co/x8tCyc9n/4a3347e4f573589a9bf8b2740f68a70a.jpg" width="280px" style="border-radius: 50%; border: 3px solid #dc2626;"/>
+
+# 👁‍🗨 MADARAWAFUS
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&pause=1000&color=DC2626&center=true&vCenter=true&width=500&lines=The+Ultimate+Waifu+Empire;Powered+by+Pyrogram;Summon+%7C+Conquer+%7C+Trade+%7C+Battle;Wake+up+to+reality...%20%F0%9F%94%A5" alt="Typing SVG" />
+
+<br/>
+
+[![Stars](https://img.shields.io/github/stars/YOURNAME/MADARAWAFUS?style=for-the-badge&logo=github&color=dc2626&labelColor=111827)](https://github.com/YOURNAME/MADARAWAFUS/stargazers)
+[![Forks](https://img.shields.io/github/forks/YOURNAME/MADARAWAFUS?style=for-the-badge&logo=github&color=991b1b&labelColor=111827)](https://github.com/YOURNAME/MADARAWAFUS/network/members)
+[![Issues](https://img.shields.io/github/issues/YOURNAME/MADARAWAFUS?style=for-the-badge&logo=github&color=ef4444&labelColor=111827)](https://github.com/YOURNAME/MADARAWAFUS/issues)
+[![License](https://img.shields.io/github/license/YOURNAME/MADARAWAFUS?style=for-the-badge&color=7f1d1d&labelColor=111827)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white&labelColor=111827)](https://python.org)
+[![Pyrogram](https://img.shields.io/badge/Pyrogram-2.0.106-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white&labelColor=111827)](https://pyrogram.org)
+
+<br/>
+
+> **👁‍🗨 A dominant Telegram waifu collection bot — summon, build your empire, trade & wage war with your waifus!**
+> Engineered with Pyrogram · MongoDB · Async Framework · Absolute Anti-Spam Defense
+
+<br/>
+
+[![Deploy on Heroku](https://img.shields.io/badge/Deploy%20on-Heroku-430098?style=for-the-badge&logo=heroku&logoColor=white)](https://heroku.com/deploy?template=https://github.com/YOURNAME/MADARAWAFUS)
+[![Deploy on Render](https://img.shields.io/badge/Deploy%20on-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy?repo=https://github.com/YOURNAME/MADARAWAFUS)
+[![Deploy on Railway](https://img.shields.io/badge/Deploy%20on-Railway-0B0D0E?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app/new/template?template=https://github.com/YOURNAME/MADARAWAFUS)
+
+</div>
+
+---
+
+## 🔥 Unique Features
+
+<img align="right" src="https://i.ibb.co/ShfRh0D/63d4ec4a046f49e5340ade54a9bd2407.jpg" width="180px" style="border-radius: 10px; border: 2px solid #dc2626;"/>
+
+- ☄️ **Chakra Manifestation (Auto Spawn)** — Waifus materialize dynamically based on active group conversation density.
+- 🎯 **Sharingan Precision (Smart Guess)** — High-performance fuzzy matching string algorithms supporting multi-word inputs.
+- ⚔️ **Shinobi Showdown (Battle System)** — Intense 1v1 combat calculations utilizing core waifu stats and tier hierarchies.
+- 🗂 **The Imperial Harem** — Clean, paginated inline menus to browse your total captured army.
+- ❤️ **Vanguard (Favourites)** — Pin up to 5 elite waifus directly to the peak of your profile layout.
+- 🔄 **Tactical Exchange (2-Way Trade)** — Bulletproof trading protocols complete with real-time confirmation checks.
+- 🩸 **Uchiha Economy** — Amass chakra coins, claim regular tributes, and dominate global net-worth boards.
+- 🛡 **Absolute Susanoo Protection (Anti-Spam)** — Rate limiting modules that completely neutralize spawn farming bots.
+
+---
+
+## 🗂 Project Architecture
+
+MADARAWAFUS/
 ├── MADARAWAFUS/
-│   ├── __init__.py          # Pyrogram client initializer
-│   ├── __main__.py          # Advanced module auto-loader
+│   ├── init.py          # Pyrogram client initializer
+│   ├── main.py          # Advanced module auto-loader
 │   ├── logging.py           # Custom colorlog setup
 │   ├── database/
 │   │   └── Mangodb.py       # Core MongoDB architecture
@@ -31,8 +80,36 @@
 │           └── inline_query.py
 ├── config.py
 └── requirements.txt
-⚙️ Configuration SetupCreate a local config.py file or register these parameters as global environment variables:VariableRequiredDescriptionAPI_ID✅Telegram API ID acquired via my.telegram.orgAPI_HASH✅Matching Telegram API Hash stringBOT_TOKEN✅Application credentials issued by @BotFatherMONGO_URI✅Secure cluster connection path for MongoDBOWNER_ID✅Explicit Telegram user ID of the prime administratorLOG_CHANNEL✅Internal tracking log channel destination IDSUDO_USERS❌List of high-clearance operator user IDsWAIFU_API_URL✅Core endpoints serving the assets/metadataWAIFU_PICS❌Direct fallback array URLs for media errors🚀 Deployment Pipelines📦 Method 1 — Self-Hosted VPS (Recommended)Environment Parameters: Ubuntu 20.04 LTS or newer · Python 3.11+ · Stable MongoDB instanceBash# 1. Fetch source code repository
-git clone https://github.com/YOURNAME/MADARAWAFUS
+
+---
+
+## ⚙️ Configuration Setup
+
+Create a local `config.py` file or register these parameters as global environment variables:
+
+| Variable | Required | Description |
+| :--- | :---: | :--- |
+| `API_ID` | ✅ | Telegram API ID acquired via [my.telegram.org](https://my.telegram.org) |
+| `API_HASH` | ✅ | Matching Telegram API Hash string |
+| `BOT_TOKEN` | ✅ | Application credentials issued by [@BotFather](https://t.me/BotFather) |
+| `MONGO_URI` | ✅ | Secure cluster connection path for MongoDB |
+| `OWNER_ID` | ✅ | Explicit Telegram user ID of the prime administrator |
+| `LOG_CHANNEL` | ✅ | Internal tracking log channel destination ID |
+| `SUDO_USERS` | ❌ | List of high-clearance operator user IDs |
+| `WAIFU_API_URL` | ✅ | Core endpoints serving the assets/metadata |
+| `WAIFU_PICS` | ❌ | Direct fallback array URLs for media errors |
+
+---
+
+## 🚀 Deployment Pipelines
+
+### 📦 Method 1 — Self-Hosted VPS (Recommended)
+
+**Environment Parameters:** Ubuntu 20.04 LTS or newer · Python 3.11+ · Stable MongoDB instance
+
+```bash
+# 1. Fetch source code repository
+git clone [https://github.com/YOURNAME/MADARAWAFUS](https://github.com/YOURNAME/MADARAWAFUS)
 cd MADARAWAFUS
 
 # 2. Update packages and verify Python 3.11 runtimes
@@ -51,41 +128,3 @@ nano config.py   # Add your explicit credentials
 
 # 6. Execute system
 python -m MADARAWAFUS
-Daemonizing through Systemd:Bashsudo nano /etc/systemd/system/madarawafus.service
-Ini, TOML[Unit]
-Description=MADARAWAFUS Production Telegram Daemon
-After=network.target
-
-[Service]
-User=ubuntu
-WorkingDirectory=/home/ubuntu/MADARAWAFUS
-ExecStart=/home/ubuntu/MADARAWAFUS/venv/bin/python -m MADARAWAFUS
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-Bashsudo systemctl daemon-reload
-sudo systemctl enable madarawafus
-sudo systemctl start madarawafus
-
-# Tail production logs live
-sudo journalctl -u madarawafus -f
-🟢 Method 2 — RenderClick the Deploy on Render element at the header profile.Configure application type as a Background Worker (Disables automatic container sleep cycles).Set install script directives: pip install -r requirements.txtSet entry point directives: python -m MADARAWAFUSAttach the environment variable matrix matching the configuration blueprint.🐳 Method 3 — Docker EngineDockerfileFROM python:3.11-slim
-
-WORKDIR /app
-COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
-
-CMD ["python", "-m", "MADARAWAFUS"]
-Bashdocker build -t madarawafus .
-docker run -d \
-  -e BOT_TOKEN=xxx \
-  -e API_ID=xxx \
-  -e API_HASH=xxx \
-  -e MONGO_URI=xxx \
-  -e OWNER_ID=xxx \
-  -e LOG_CHANNEL=xxx \
-  --name madarawafus_instance \
-  madarawafus
-📋 Directives MatrixCommandObjectiveAccess Tier/startEngage interface systemsUniversal/guess <name>Match incoming target identityPublic Groups/haremView personalized asset arrayUniversal/fav <name>Lock character into primary showcase slotsUniversal/unfav <name>Free character from showcase slotsUniversal/myfavReview current elite roster entriesUniversal/balanceCheck personal Chakra wallet holdingsUniversal/pay <amount>Securely transfer funds to another entityUniversal/trade <waifu> | <waifu>Open reciprocal exchange transaction interfaceUniversal/dailyClaim periodic upkeep allowanceUniversal/battleInitiate ranked encounter challengesPublic Groups/spawnonActivate group manifestation systemsGroup Admins/spawnoffSleep group manifestation systemsGroup Admins/setspawn <n>Modify threshold trigger mechanicsGroup Admins/fspawnForce instant manual generation eventSudo Network/addwaifuInject asset properties straight into core databaseSudo Network/broadcastForce systemic node global message alertsSystem Owner/addcoinsInject funds directly to target user balanceSudo Network/pingReturn current WebSocket execution latencyUniversal/statsPull operational load and balance recordsUniversal🛡 Susanoo Anti-Spam ArchitectureThe framework deploys a robust protective system native to spawn.py:Rate Limits: Tracks individual execution velocities. Exceeding 3 alerts within 3 seconds trips state-level monitoring flags.Cooldown Windows: Users verified as automated farming programs face temporary 5-minute tracking lockouts.Chat Guard Rails: Imposes brief 10-second chat cooldown cycles and international 2-second global network throttles across distinct nodes to prevent hardware degradation.⭐ Empire StatusIf this project changed your digital ecosystem, give it a star—let us bring order to the world.Developed with 🔥 by MADARAWAFUS Tech Core
