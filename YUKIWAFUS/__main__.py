@@ -6,7 +6,7 @@ import logging
 from pyrogram import idle
 
 import config
-from YUKIWAFUS.bot import app          # ← correct import
+from YUKIWAFUS import app          # ← correct import
 from YUKIWAFUS.modules import ALL_MODULES
 
 # Per‑module logger
