@@ -507,14 +507,43 @@ async def deltitle_cmd(client: Client, message: Message):
     title_id = message.command[1].strip().upper()
     result   = await titlesdb.delete_one({"type": "catalog", "title_id": title_id})
 
-    if result.deleted_count:
-        await message.reply_text(
-            f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title Deleted')}!</b></blockquote>\n\n"
-            f"🆔 <code>{title_id}</code>",
+    if result.deleted_count == 0:
+        return await message.reply_text(
+            f"<blockquote>❌ <b>{sc('Title not found')}!</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
-    else:
-        await message.reply_text(
-            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Title not found')}!</b></blockquote>",
+
+    await message.reply_text(
+        f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title deleted')}.</b></blockquote>",
+        parse_mode=enums.ParseMode.HTML,
+    )
+
+
+@app.on_message(
+    filters.command("listtitles")
+    & filters.user(config.SUDO_USERS + [config.OWNER_ID])
+)
+async def listtitles_cmd(client: Client, message: Message):
+    all_t = await get_all_titles()
+
+    if not all_t:
+        return await message.reply_text(
+            f"<blockquote>⚠️ <b>{sc('No titles in catalog')}.</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
+
+    text = (
+        f"<blockquote>"
+        f"<emoji id='6291837599254322363'>🌸</emoji> "
+        f"<b>{sc('Title Catalog')} ({len(all_t)})</b>"
+        f"</blockquote>\n\n"
+    )
+    for t in all_t:
+        emoji, _ = get_tier(t["price"])
+        text += (
+            f"{emoji} <b>{escape(t['name'])}</b>  "
+            f"<code>{t['title_id']}</code>  "
+            f"🪙 {t['price']:,}\n"
+        )
+
+    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
