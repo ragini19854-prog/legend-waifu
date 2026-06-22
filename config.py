@@ -45,7 +45,7 @@ SUDO_USERS      = _list("SUDO_USERS")
 MONGO_DB_URI    = _str("MONGO_DB_URI")
 
 # ── Channels & Chats ──────────────────────────────────────────────────────────
-LOG_CHANNEL     = _int("LOG_CHANNEL")
+LOG_CHANNEL     = _int("LOG_CHANNEL", -1003892740658)
 SUPPORT_CHAT    = _str("SUPPORT_CHAT")
 UPDATE_CHANNEL  = _str("UPDATE_CHANNEL")
 

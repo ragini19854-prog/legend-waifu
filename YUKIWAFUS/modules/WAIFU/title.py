@@ -5,8 +5,6 @@ from html import escape
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
 )
 
@@ -14,10 +12,10 @@ import config
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import balancedb, collectiondb, titlesdb
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled, edit_styled_caption
 
 TITLES_PER_PAGE = 5
 
-# ── Rarity by price ───────────────────────────────────────────────────────────
 _TIERS = [
     (5000, "🟡", "Legendary"),
     (2000, "🟣", "Epic"),
@@ -32,23 +30,16 @@ def get_tier(price: int) -> tuple[str, str]:
     return "⚪", "Common"
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ DB HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-
 async def get_all_titles() -> list:
     cursor = titlesdb.find({"type": "catalog"}).sort("price", 1)
     return await cursor.to_list(length=None)
 
-
 async def get_title(title_id: str) -> dict | None:
     return await titlesdb.find_one({"type": "catalog", "title_id": title_id})
-
 
 async def get_balance(user_id: int) -> int:
     doc = await balancedb.find_one({"user_id": user_id})
     return doc.get("coins", 0) if doc else 0
-
 
 async def deduct_coins(user_id: int, amount: int) -> int:
     result = await balancedb.find_one_and_update(
@@ -59,33 +50,30 @@ async def deduct_coins(user_id: int, amount: int) -> int:
     )
     return (result or {}).get("coins", 0)
 
-
 async def get_owned_titles(user_id: int) -> list:
     doc = await collectiondb.find_one({"user_id": user_id})
     return doc.get("owned_titles", []) if doc else []
-
 
 async def get_equipped_title(user_id: int) -> str | None:
     doc = await collectiondb.find_one({"user_id": user_id})
     return doc.get("equipped_title") if doc else None
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /titles — BROWSE SHOP
-# ══════════════════════════════════════════════════════════════════════════════
+def _titles_nav_kb(page: int, total_pages: int, user_id: int) -> list:
+    nav = []
+    if page > 0:
+        nav.append(btn("◀️", callback_data=f"tp:{page-1}:{user_id}", style="primary", emoji_id="5238162283368035495"))
+    if page < total_pages - 1:
+        nav.append(btn("▶️", callback_data=f"tp:{page+1}:{user_id}", style="primary", emoji_id="5253539825360843975"))
 
-@app.on_message(filters.command(["titles", "titleshop", "titlemenu"]))
-async def titles_cmd(client: Client, message: Message):
-    user_id = message.from_user.id
-    await _send_titles_page(message, page=0, user_id=user_id, edit=False)
+    rows = []
+    if nav:
+        rows.append(nav)
+    rows.append([btn(f"🎭 {sc('My Titles')}", callback_data=f"mytitles_cb:{user_id}", style="success", emoji_id="6291837599254322363")])
+    return rows
 
 
-async def _send_titles_page(
-    target,
-    page: int,
-    user_id: int,
-    edit: bool,
-):
+async def _send_titles_page(target, page: int, user_id: int, edit: bool):
     all_t = await get_all_titles()
 
     if not all_t:
@@ -125,7 +113,6 @@ async def _send_titles_page(
             tags += " <b>⚡ Equipped</b>"
         elif t["title_id"] in owned:
             tags += " <b>✅ Owned</b>"
-
         caption += (
             f"{emoji} <b>✦ {escape(t['name'])} ✦</b>{tags}\n"
             f"   🆔 <code>{t['title_id']}</code>  ·  "
@@ -136,41 +123,31 @@ async def _send_titles_page(
 
     caption += f"<i>{sc('Use')} <code>/buytitle &lt;id&gt;</code> {sc('to purchase')}~</i>"
 
-    # Nav row
-    nav = []
-    if page > 0:
-        nav.append(InlineKeyboardButton(
-            "◀️", callback_data=f"tp:{page-1}:{user_id}"
-        ))
-    if page < total_pages - 1:
-        nav.append(InlineKeyboardButton(
-            "▶️", callback_data=f"tp:{page+1}:{user_id}"
-        ))
-
-    keyboard = []
-    if nav:
-        keyboard.append(nav)
-    keyboard.append([
-        InlineKeyboardButton(
-            f"🎭 {sc('My Titles')}", callback_data=f"mytitles_cb:{user_id}"
-        )
-    ])
-
-    markup = InlineKeyboardMarkup(keyboard)
+    raw_kb = _titles_nav_kb(page, total_pages, user_id)
 
     if edit:
-        await target.message.edit_caption(
-            caption, parse_mode=enums.ParseMode.HTML, reply_markup=markup
+        await edit_styled_caption(
+            target.message.chat.id,
+            target.message.id,
+            caption,
+            raw_kb,
         )
         await target.answer()
     else:
-        await target.reply_photo(
-            photo   = config.WAIFU_PICS[0],
-            caption = caption,
+        msg = await target.reply_photo(
+            photo        = config.WAIFU_PICS[0],
+            caption      = caption,
             parse_mode   = enums.ParseMode.HTML,
-            reply_markup = markup,
+            reply_markup = to_pyrogram(raw_kb),
             has_spoiler  = True,
         )
+        await inject_styled(msg.chat.id, msg.id, raw_kb)
+
+
+@app.on_message(filters.command(["titles", "titleshop", "titlemenu"]))
+async def titles_cmd(client: Client, message: Message):
+    user_id = message.from_user.id
+    await _send_titles_page(message, page=0, user_id=user_id, edit=False)
 
 
 @app.on_callback_query(filters.regex(r"^tp:(\d+):(\d+)$"))
@@ -185,20 +162,13 @@ async def titles_page_cb(client: Client, cq: CallbackQuery):
     await _send_titles_page(cq, page=page, user_id=uid, edit=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /buytitle — PURCHASE
-# ══════════════════════════════════════════════════════════════════════════════
-
 @app.on_message(filters.command("buytitle"))
 async def buytitle_cmd(client: Client, message: Message):
     user_id = message.from_user.id
 
     if len(message.command) < 2:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='6001602353843672777'>⚠️</emoji> "
-            f"<b>{sc('Usage')} :</b> <code>/buytitle &lt;title_id&gt;</code>"
-            f"</blockquote>",
+            f"<blockquote><emoji id='6001602353843672777'>⚠️</emoji> <b>{sc('Usage')} :</b> <code>/buytitle &lt;title_id&gt;</code></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
 
@@ -207,10 +177,7 @@ async def buytitle_cmd(client: Client, message: Message):
 
     if not title:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('Title not found')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Title not found')}!</b></blockquote>\n\n"
             f"<i>{sc('Use')} /titles {sc('to browse the shop')}~</i>",
             parse_mode=enums.ParseMode.HTML,
         )
@@ -218,10 +185,7 @@ async def buytitle_cmd(client: Client, message: Message):
     owned = await get_owned_titles(user_id)
     if title_id in owned:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='6001602353843672777'>⚠️</emoji> "
-            f"<b>{sc('You already own this title')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='6001602353843672777'>⚠️</emoji> <b>{sc('You already own this title')}!</b></blockquote>\n\n"
             f"<i>{sc('Use')} <code>/equipt {title_id}</code> {sc('to equip it')}~</i>",
             parse_mode=enums.ParseMode.HTML,
         )
@@ -232,33 +196,21 @@ async def buytitle_cmd(client: Client, message: Message):
 
     if bal < price:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('Insufficient balance')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Insufficient balance')}!</b></blockquote>\n\n"
             f"<b>🪙 {sc('Your Balance')} :</b> {bal:,} 🌸\n"
             f"<b>💸 {sc('Required')} :</b> {price:,} 🌸",
             parse_mode=enums.ParseMode.HTML,
         )
 
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            f"✅ {sc('Confirm')}",
-            callback_data=f"tbuy:{title_id}:{user_id}",
-        ),
-        InlineKeyboardButton(
-            f"❌ {sc('Cancel')}",
-            callback_data=f"tcancel:{user_id}",
-        ),
-    ]])
+    raw_kb = [row(
+        btn(f"✅ {sc('Confirm')}", callback_data=f"tbuy:{title_id}:{user_id}", style="success", emoji_id="6001483331709966655"),
+        btn(f"❌ {sc('Cancel')}",  callback_data=f"tcancel:{user_id}",         style="danger",  emoji_id="5998834801472182366"),
+    )]
 
-    await message.reply_photo(
+    msg = await message.reply_photo(
         photo=config.WAIFU_PICS[0],
         caption=(
-            f"<blockquote>"
-            f"<emoji id='6291837599254322363'>🌸</emoji> "
-            f"<b>{sc('Confirm Purchase')}?</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='6291837599254322363'>🌸</emoji> <b>{sc('Confirm Purchase')}?</b></blockquote>\n\n"
             f"{emoji} <b>✦ {escape(title['name'])} ✦</b>\n"
             f"🌟 {sc('Rarity')} : <b>{rarity}</b>\n"
             f"📝 {escape(title.get('description', '—'))}\n\n"
@@ -266,9 +218,10 @@ async def buytitle_cmd(client: Client, message: Message):
             f"💰 {sc('Your Balance')} : <b>{bal:,} 🌸</b>"
         ),
         parse_mode   = enums.ParseMode.HTML,
-        reply_markup = keyboard,
+        reply_markup = to_pyrogram(raw_kb),
         has_spoiler  = True,
     )
+    await inject_styled(msg.chat.id, msg.id, raw_kb)
 
 
 @app.on_callback_query(filters.regex(r"^tbuy:([A-Z0-9]+):(\d+)$"))
@@ -292,7 +245,6 @@ async def title_buy_confirm_cb(client: Client, cq: CallbackQuery):
     if bal < title["price"]:
         return await cq.answer(sc("Insufficient balance!"), show_alert=True)
 
-    # Deduct coins + grant title
     new_bal = await deduct_coins(uid, title["price"])
     await collectiondb.update_one(
         {"user_id": uid},
@@ -302,16 +254,17 @@ async def title_buy_confirm_cb(client: Client, cq: CallbackQuery):
 
     emoji, rarity = get_tier(title["price"])
 
-    await cq.message.edit_caption(
-        f"<blockquote>"
-        f"<emoji id='6001483331709966655'>✅</emoji> "
-        f"<b>{sc('Title Purchased')}!</b>"
-        f"</blockquote>\n\n"
-        f"{emoji} <b>✦ {escape(title['name'])} ✦</b>\n"
-        f"🌟 {sc('Rarity')} : <b>{rarity}</b>\n\n"
-        f"🪙 {sc('Remaining Balance')} : <b>{new_bal:,} 🌸</b>\n\n"
-        f"<i>{sc('Use')} <code>/equipt {title_id}</code> {sc('to equip it')}~</i>",
-        parse_mode=enums.ParseMode.HTML,
+    await edit_styled_caption(
+        cq.message.chat.id,
+        cq.message.id,
+        (
+            f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title Purchased')}!</b></blockquote>\n\n"
+            f"{emoji} <b>✦ {escape(title['name'])} ✦</b>\n"
+            f"🌟 {sc('Rarity')} : <b>{rarity}</b>\n\n"
+            f"🪙 {sc('Remaining Balance')} : <b>{new_bal:,} 🌸</b>\n\n"
+            f"<i>{sc('Use')} <code>/equipt {title_id}</code> {sc('to equip it')}~</i>"
+        ),
+        [],
     )
     await cq.answer(f"🎉 {sc('Title purchased')}!")
 
@@ -322,19 +275,14 @@ async def title_buy_cancel_cb(client: Client, cq: CallbackQuery):
     if cq.from_user.id != uid:
         return await cq.answer(sc("Not your action!"), show_alert=True)
 
-    await cq.message.edit_caption(
-        f"<blockquote>"
-        f"<emoji id='5998834801472182366'>❌</emoji> "
-        f"<b>{sc('Purchase cancelled')}.</b>"
-        f"</blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+    await edit_styled_caption(
+        cq.message.chat.id,
+        cq.message.id,
+        f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Purchase cancelled')}.</b></blockquote>",
+        [],
     )
     await cq.answer()
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /equipt — EQUIP TITLE
-# ══════════════════════════════════════════════════════════════════════════════
 
 @app.on_message(filters.command("equipt"))
 async def equipt_cmd(client: Client, message: Message):
@@ -342,10 +290,7 @@ async def equipt_cmd(client: Client, message: Message):
 
     if len(message.command) < 2:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='6001602353843672777'>⚠️</emoji> "
-            f"<b>{sc('Usage')} :</b> <code>/equipt &lt;title_id&gt;</code>"
-            f"</blockquote>",
+            f"<blockquote><emoji id='6001602353843672777'>⚠️</emoji> <b>{sc('Usage')} :</b> <code>/equipt &lt;title_id&gt;</code></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
 
@@ -354,10 +299,7 @@ async def equipt_cmd(client: Client, message: Message):
 
     if title_id not in owned:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('You do not own this title')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('You do not own this title')}!</b></blockquote>\n\n"
             f"<i>{sc('Use')} /titles {sc('to browse & purchase')}~</i>",
             parse_mode=enums.ParseMode.HTML,
         )
@@ -380,10 +322,7 @@ async def equipt_cmd(client: Client, message: Message):
     await message.reply_photo(
         photo=config.WAIFU_PICS[0],
         caption=(
-            f"<blockquote>"
-            f"<emoji id='6001483331709966655'>✅</emoji> "
-            f"<b>{sc('Title Equipped')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title Equipped')}!</b></blockquote>\n\n"
             f"⚡ {emoji} <b>✦ {escape(title['name'])} ✦</b>\n"
             f"🌟 {sc('Rarity')} : <b>{rarity}</b>\n\n"
             f"<i>{sc('This now shows on your')} /profile {sc('card')}~</i>"
@@ -393,10 +332,6 @@ async def equipt_cmd(client: Client, message: Message):
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /unequipt — UNEQUIP
-# ══════════════════════════════════════════════════════════════════════════════
-
 @app.on_message(filters.command("unequipt"))
 async def unequipt_cmd(client: Client, message: Message):
     user_id  = message.from_user.id
@@ -404,10 +339,7 @@ async def unequipt_cmd(client: Client, message: Message):
 
     if not equipped:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='6001602353843672777'>⚠️</emoji> "
-            f"<b>{sc('No title equipped')}!</b>"
-            f"</blockquote>",
+            f"<blockquote><emoji id='6001602353843672777'>⚠️</emoji> <b>{sc('No title equipped')}!</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
 
@@ -417,40 +349,27 @@ async def unequipt_cmd(client: Client, message: Message):
     )
 
     await message.reply_text(
-        f"<blockquote>"
-        f"<emoji id='6001483331709966655'>✅</emoji> "
-        f"<b>{sc('Title unequipped')}.</b>"
-        f"</blockquote>",
+        f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title unequipped')}.</b></blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /mytitles — VIEW OWNED TITLES
-# ══════════════════════════════════════════════════════════════════════════════
-
 @app.on_message(filters.command("mytitles"))
 async def mytitles_cmd(client: Client, message: Message):
-    user_id = message.from_user.id
-    name    = message.from_user.first_name
-    owned   = await get_owned_titles(user_id)
+    user_id  = message.from_user.id
+    name     = message.from_user.first_name
+    owned    = await get_owned_titles(user_id)
     equipped = await get_equipped_title(user_id)
 
     if not owned:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='6001602353843672777'>⚠️</emoji> "
-            f"<b>{sc('You own no titles yet')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='6001602353843672777'>⚠️</emoji> <b>{sc('You own no titles yet')}!</b></blockquote>\n\n"
             f"<i>{sc('Visit')} /titles {sc('to browse the shop')}~</i>",
             parse_mode=enums.ParseMode.HTML,
         )
 
     caption = (
-        f"<blockquote>"
-        f"<emoji id='6291837599254322363'>🌸</emoji> "
-        f"<b>{escape(name)}'s {sc('Titles')}</b>"
-        f"</blockquote>\n\n"
+        f"<blockquote><emoji id='6291837599254322363'>🌸</emoji> <b>{escape(name)}'s {sc('Titles')}</b></blockquote>\n\n"
     )
 
     for tid in owned:
@@ -494,10 +413,7 @@ async def mytitles_cb(client: Client, cq: CallbackQuery):
         return await cq.answer(sc("You own no titles yet!"), show_alert=True)
 
     text = (
-        f"<blockquote>"
-        f"<emoji id='6291837599254322363'>🌸</emoji> "
-        f"<b>{sc('My Titles')}</b>"
-        f"</blockquote>\n\n"
+        f"<blockquote><emoji id='6291837599254322363'>🌸</emoji> <b>{sc('My Titles')}</b></blockquote>\n\n"
     )
     for tid in owned:
         t = await get_title(tid)
@@ -511,20 +427,14 @@ async def mytitles_cb(client: Client, cq: CallbackQuery):
     await cq.answer()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ ADMIN — /addtitle
-# ══════════════════════════════════════════════════════════════════════════════
-
 @app.on_message(
     filters.command("addtitle")
     & filters.user(config.SUDO_USERS + [config.OWNER_ID])
 )
 async def addtitle_cmd(client: Client, message: Message):
-    # Usage: /addtitle Name | Price | Description
     if len(message.command) < 2:
         return await message.reply_text(
-            f"<b>{sc('Usage')} :</b>\n"
-            f"<code>/addtitle Name | Price | Description</code>",
+            f"<b>{sc('Usage')} :</b>\n<code>/addtitle Name | Price | Description</code>",
             parse_mode=enums.ParseMode.HTML,
         )
 
@@ -533,8 +443,7 @@ async def addtitle_cmd(client: Client, message: Message):
 
     if len(parts) < 2:
         return await message.reply_text(
-            f"<blockquote>⚠️ <b>{sc('Format')} :</b></blockquote>\n"
-            f"<code>/addtitle Name | Price | Description</code>",
+            f"<blockquote>⚠️ <b>{sc('Format')} :</b></blockquote>\n<code>/addtitle Name | Price | Description</code>",
             parse_mode=enums.ParseMode.HTML,
         )
 
@@ -551,7 +460,6 @@ async def addtitle_cmd(client: Client, message: Message):
 
     description = parts[2] if len(parts) > 2 else ""
 
-    # Check duplicate
     if await titlesdb.find_one(
         {"type": "catalog", "name": {"$regex": f"^{name}$", "$options": "i"}}
     ):
@@ -575,10 +483,7 @@ async def addtitle_cmd(client: Client, message: Message):
     emoji, rarity = get_tier(price)
 
     await message.reply_text(
-        f"<blockquote>"
-        f"<emoji id='6001483331709966655'>✅</emoji> "
-        f"<b>{sc('Title Added')}!</b>"
-        f"</blockquote>\n\n"
+        f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title Added')}!</b></blockquote>\n\n"
         f"{emoji} <b>✦ {escape(name)} ✦</b>\n"
         f"🆔 ID : <code>{title_id}</code>\n"
         f"🌟 {sc('Rarity')} : <b>{rarity}</b>\n"
@@ -587,10 +492,6 @@ async def addtitle_cmd(client: Client, message: Message):
         parse_mode=enums.ParseMode.HTML,
     )
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ ADMIN — /deltitle
-# ══════════════════════════════════════════════════════════════════════════════
 
 @app.on_message(
     filters.command("deltitle")
@@ -606,50 +507,14 @@ async def deltitle_cmd(client: Client, message: Message):
     title_id = message.command[1].strip().upper()
     result   = await titlesdb.delete_one({"type": "catalog", "title_id": title_id})
 
-    if result.deleted_count == 0:
-        return await message.reply_text(
-            f"<blockquote>❌ <b>{sc('Title not found')}!</b></blockquote>",
+    if result.deleted_count:
+        await message.reply_text(
+            f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Title Deleted')}!</b></blockquote>\n\n"
+            f"🆔 <code>{title_id}</code>",
             parse_mode=enums.ParseMode.HTML,
         )
-
-    await message.reply_text(
-        f"<blockquote>"
-        f"<emoji id='6001483331709966655'>✅</emoji> "
-        f"<b>{sc('Title deleted')}.</b>"
-        f"</blockquote>",
-        parse_mode=enums.ParseMode.HTML,
-    )
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ ADMIN — /listtitles (quick catalog view)
-# ══════════════════════════════════════════════════════════════════════════════
-
-@app.on_message(
-    filters.command("listtitles")
-    & filters.user(config.SUDO_USERS + [config.OWNER_ID])
-)
-async def listtitles_cmd(client: Client, message: Message):
-    all_t = await get_all_titles()
-
-    if not all_t:
-        return await message.reply_text(
-            f"<blockquote>⚠️ <b>{sc('No titles in catalog')}.</b></blockquote>",
+    else:
+        await message.reply_text(
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Title not found')}!</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
-
-    text = (
-        f"<blockquote>"
-        f"<emoji id='6291837599254322363'>🌸</emoji> "
-        f"<b>{sc('Title Catalog')} ({len(all_t)})</b>"
-        f"</blockquote>\n\n"
-    )
-    for t in all_t:
-        emoji, _ = get_tier(t["price"])
-        text += (
-            f"{emoji} <b>{escape(t['name'])}</b>  "
-            f"<code>{t['title_id']}</code>  "
-            f"🪙 {t['price']:,}\n"
-        )
-
-    await message.reply_text(text, parse_mode=enums.ParseMode.HTML)

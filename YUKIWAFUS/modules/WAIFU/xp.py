@@ -6,8 +6,6 @@ from html import escape
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
 )
 
@@ -15,10 +13,8 @@ import config
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import game_statsdb, balancedb, chatsdb
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ CONFIG
-# ══════════════════════════════════════════════════════════════════════════════
 XP_PER_MSG_MIN  = 3
 XP_PER_MSG_MAX  = 8
 XP_COOLDOWN     = 10
@@ -50,13 +46,9 @@ def _progress_bar(current: int, total: int, length: int = 10) -> str:
     filled = min(int((current / total) * length) if total else 0, length)
     return f"[{'█' * filled}{'░' * (length - filled)}]"
 
-# ── Cooldown dict ──────────────────────────────────────────────────────────────
 _xp_cd: dict = {}
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ DB HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
 async def get_user_xp(user_id: int, chat_id: int) -> dict:
     doc = await game_statsdb.find_one({"user_id": user_id, "chat_id": chat_id})
     return doc or {"user_id": user_id, "chat_id": chat_id, "xp": 0}
@@ -93,14 +85,8 @@ async def set_xp_enabled(chat_id: int, enabled: bool):
     )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ XP LISTENER — group messages only
-#    ✅ FIX: removed ~filters.command([]) which could cause import error
-#    ✅ FIX: XP not given on commands (checked inside handler)
-# ══════════════════════════════════════════════════════════════════════════════
 @app.on_message(filters.group & ~filters.bot & ~filters.service, group=10)
 async def xp_listener(client: Client, message: Message):
-    # Skip commands — don't give XP for bot commands
     if message.text and message.text.startswith("/"):
         return
     if message.caption and message.caption.startswith("/"):
@@ -115,7 +101,6 @@ async def xp_listener(client: Client, message: Message):
     if not await is_xp_enabled(chat_id):
         return
 
-    # Cooldown check
     now = time.time()
     key = (user_id, chat_id)
     if now - _xp_cd.get(key, 0) < XP_COOLDOWN:
@@ -163,10 +148,6 @@ async def _notify_level_up(client, message: Message, user_id: int, new_level: in
         pass
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /level or /xp — XP card
-#    ✅ FIX: removed /rank from here — rank.py already handles it
-# ══════════════════════════════════════════════════════════════════════════════
 @app.on_message(filters.command(["level", "xp"]))
 async def level_cmd(client: Client, message: Message):
     target   = (
@@ -188,11 +169,9 @@ async def level_cmd(client: Client, message: Message):
 
     title = next((LEVEL_TITLES[l] for l in sorted(LEVEL_TITLES, reverse=True) if level >= l), "")
 
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton(f"🏆 {sc('Group Top')}", callback_data=f"xp_top:{chat_id}"),
-    ]])
+    raw_kb = [row(btn(f"🏆 {sc('Group Top')}", callback_data=f"xp_top:{chat_id}", style="primary", emoji_id="6291835288561917135"))]
 
-    await message.reply_photo(
+    msg = await message.reply_photo(
         photo=config.WAIFU_PICS[0],
         caption=(
             f"<blockquote>"
@@ -207,14 +186,12 @@ async def level_cmd(client: Client, message: Message):
             f"\n<i>{sc('Keep chatting to level up')}~</i>"
         ),
         parse_mode=enums.ParseMode.HTML,
-        reply_markup=keyboard,
+        reply_markup=to_pyrogram(raw_kb),
         has_spoiler=True,
     )
+    await inject_styled(msg.chat.id, msg.id, raw_kb)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ XP Top callback
-# ══════════════════════════════════════════════════════════════════════════════
 @app.on_callback_query(filters.regex(r"^xp_top:"))
 async def xp_top_cb(client: Client, cq: CallbackQuery):
     chat_id = int(cq.data.split(":")[1])
@@ -246,9 +223,6 @@ async def xp_top_cb(client: Client, cq: CallbackQuery):
     await cq.answer()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /xpon / /xpoff
-# ══════════════════════════════════════════════════════════════════════════════
 @app.on_message(filters.command("xpon") & filters.group)
 async def xpon_cmd(client: Client, message: Message):
     member = await client.get_chat_member(message.chat.id, message.from_user.id)
@@ -256,8 +230,7 @@ async def xpon_cmd(client: Client, message: Message):
         return await message.reply_text(f"❌ {sc('Admins only!')}")
     await set_xp_enabled(message.chat.id, True)
     await message.reply_text(
-        f"<blockquote><emoji id='6001483331709966655'>✅</emoji> "
-        f"<b>{sc('XP system enabled')}!</b></blockquote>",
+        f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('XP system enabled')}!</b></blockquote>",
         parse_mode=enums.ParseMode.HTML,
     )
 
@@ -269,8 +242,6 @@ async def xpoff_cmd(client: Client, message: Message):
         return await message.reply_text(f"❌ {sc('Admins only!')}")
     await set_xp_enabled(message.chat.id, False)
     await message.reply_text(
-        f"<blockquote><emoji id='5998834801472182366'>❌</emoji> "
-        f"<b>{sc('XP system disabled')}.</b></blockquote>",
+        f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('XP system disabled')}.</b></blockquote>",
         parse_mode=enums.ParseMode.HTML,
-)
-    
+    )

@@ -4,18 +4,16 @@ from html import escape
 
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
 )
 
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb, balancedb, game_statsdb
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled
 
 from YUKIWAFUS.modules.WAIFU.spawn import active_spawns, _blocked_users
 
-# ── In-memory ─────────────────────────────────────────────────────────────────
 guessed_chats: set  = set()
 cooldowns:     dict = {}
 
@@ -33,7 +31,6 @@ RARITY_EMOJI = {
 }
 
 
-# ── Cooldown helpers ──────────────────────────────────────────────────────────
 def _on_cooldown(user_id: int) -> bool:
     return (time.time() - cooldowns.get(user_id, 0)) < COOLDOWN_SEC
 
@@ -44,7 +41,6 @@ def _set_cooldown(user_id: int):
     cooldowns[user_id] = time.time()
 
 
-# ── Spam block check ──────────────────────────────────────────────────────────
 def _spam_blocked(chat_id: int, user_id: int) -> int:
     key     = (chat_id, user_id)
     unblock = _blocked_users.get(key)
@@ -56,33 +52,25 @@ def _spam_blocked(chat_id: int, user_id: int) -> int:
     return 0
 
 
-# ── Smart name matching ───────────────────────────────────────────────────────
 def _normalize(s: str) -> str:
     return s.lower().strip().replace("-", " ").replace("_", " ")
 
 def _is_correct(guess: str, correct: str) -> bool:
     g = _normalize(guess)
     c = _normalize(correct)
-
     if g == c:
         return True
-
     g_parts = g.split()
     c_parts = c.split()
-
     if sorted(g_parts) == sorted(c_parts):
         return True
-
     if len(c_parts) > 1 and g == c_parts[0]:
         return True
-
     if len(g_parts) >= 2 and all(p in c_parts for p in g_parts):
         return True
-
     return False
 
 
-# ── DB helpers ────────────────────────────────────────────────────────────────
 async def _add_to_collection(user_id: int, username: str, first_name: str, waifu: dict):
     await collectiondb.update_one(
         {"user_id": user_id},
@@ -110,7 +98,6 @@ async def _inc_guesses(user_id: int):
     )
 
 
-# ── /guess handler ────────────────────────────────────────────────────────────
 @app.on_message(filters.command(["guess", "grab", "hunt", "collect", "protecc"]))
 async def guess_handler(client: Client, message: Message):
     chat_id = message.chat.id
@@ -119,7 +106,6 @@ async def guess_handler(client: Client, message: Message):
 
     mention = f"<a href='tg://user?id={user_id}'>{escape(user.first_name)}</a>"
 
-    # ── Spam block check ──────────────────────────────────────────────────────
     block_remaining = _spam_blocked(chat_id, user_id)
     if block_remaining:
         mins     = block_remaining // 60
@@ -136,7 +122,6 @@ async def guess_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    # ── Guess cooldown ────────────────────────────────────────────────────────
     if _on_cooldown(user_id):
         return await message.reply_text(
             f"<blockquote>"
@@ -146,7 +131,6 @@ async def guess_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    # ── No active waifu ───────────────────────────────────────────────────────
     if chat_id not in active_spawns:
         return await message.reply_text(
             f"<blockquote>"
@@ -157,7 +141,6 @@ async def guess_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    # ── Already guessed ───────────────────────────────────────────────────────
     if chat_id in guessed_chats:
         return await message.reply_text(
             f"<blockquote>"
@@ -167,7 +150,6 @@ async def guess_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    # ── No name provided ──────────────────────────────────────────────────────
     guess = " ".join(message.command[1:]).strip()
     if not guess:
         return await message.reply_text(
@@ -186,7 +168,6 @@ async def guess_handler(client: Client, message: Message):
 
     _set_cooldown(user_id)
 
-    # ── Correct ───────────────────────────────────────────────────────────────
     if _is_correct(guess, correct_name):
         guessed_chats.add(chat_id)
         active_spawns.pop(chat_id, None)
@@ -202,14 +183,9 @@ async def guess_handler(client: Client, message: Message):
         )
         await _inc_guesses(user_id)
 
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                f"🌸 {sc('My Harem')}",
-                switch_inline_query_current_chat=f"col.{user_id}",
-            )
-        ]])
+        raw_kb = [row(btn(f"🌸 {sc('My Harem')}", switch_current=f"col.{user_id}", style="success", emoji_id="6291837599254322363"))]
 
-        await message.reply_photo(
+        msg = await message.reply_photo(
             photo=waifu["img_url"],
             caption=(
                 f"<blockquote>"
@@ -225,29 +201,25 @@ async def guess_handler(client: Client, message: Message):
                 f"<b>⏱ {sc('Time')} :</b> <b>{time_taken}s</b>"
             ),
             parse_mode=enums.ParseMode.HTML,
-            reply_markup=keyboard,
+            reply_markup=to_pyrogram(raw_kb),
         )
+        await inject_styled(msg.chat.id, msg.id, raw_kb)
 
-    # ── Wrong ─────────────────────────────────────────────────────────────────
     else:
         msg_id   = waifu.get("message_id")
-        keyboard = None
+        raw_kb   = None
         if msg_id:
             safe_cid = str(chat_id).replace("-100", "")
-            keyboard = InlineKeyboardMarkup([[
-                InlineKeyboardButton(
-                    f"👀 {sc('View Waifu')}",
-                    url=f"https://t.me/c/{safe_cid}/{msg_id}",
-                )
-            ]])
+            raw_kb   = [row(btn(f"👀 {sc('View Waifu')}", url=f"https://t.me/c/{safe_cid}/{msg_id}", style="primary", emoji_id="5249244862359812334"))]
 
-        await message.reply_text(
+        msg = await message.reply_text(
             f"<blockquote>"
             f"<emoji id='5998834801472182366'>❌</emoji> "
             f"<b>{sc('Wrong')}!</b> "
             f"{sc('Try again')}~ 🕵️"
             f"</blockquote>",
             parse_mode=enums.ParseMode.HTML,
-            reply_markup=keyboard,
-    )
-        
+            reply_markup=to_pyrogram(raw_kb) if raw_kb else None,
+        )
+        if raw_kb:
+            await inject_styled(msg.chat.id, msg.id, raw_kb)

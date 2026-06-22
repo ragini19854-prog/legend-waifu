@@ -1,15 +1,12 @@
 import asyncio
 import math
 import random
-from datetime import datetime, timedelta
 from html import escape
 from itertools import groupby
 
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     InputMediaPhoto,
     Message,
 )
@@ -17,8 +14,8 @@ from pyrogram.types import (
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb
 from YUKIWAFUS.utils.api import find_waifu, get_random_waifu
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled, edit_styled_markup
 
-# ── Rarity Map ────────────────────────────────────────────────────────────────
 RARITY_EMOJI = {
     "Common":    "⚪",
     "Uncommon":  "🟢",
@@ -29,10 +26,9 @@ RARITY_EMOJI = {
 }
 
 ITEMS_PER_PAGE = 15
-AUTO_DELETE = 180  # 3 minutes
+AUTO_DELETE    = 180
 
 
-# ── DB Helpers ────────────────────────────────────────────────────────────────
 async def get_user_collection(user_id: int) -> list:
     user = await collectiondb.find_one({"user_id": user_id})
     if not user or "waifus" not in user:
@@ -53,41 +49,34 @@ async def set_user_filter(user_id: int, rarity: str | None):
     )
 
 
-# ── Harem Display ─────────────────────────────────────────────────────────────
 async def build_harem_text(
     name: str,
     waifus: list,
     page: int,
     filter_rarity: str | None,
 ) -> tuple[str, int]:
-    """Returns (message_text, total_pages)"""
-
     if filter_rarity:
         waifus = [w for w in waifus if w.get("rarity") == filter_rarity]
 
-    # Sort by rarity then name
     waifus = sorted(waifus, key=lambda x: (x.get("rarity", ""), x.get("name", "")))
 
-    # Deduplicate + count
     counts = {}
     unique = {}
     for w in waifus:
-        wid = w.get("waifu_id", w.get("name"))
-        counts[wid] = counts.get(wid, 0) + 1
-        unique[wid] = w
+        wid           = w.get("waifu_id", w.get("name"))
+        counts[wid]   = counts.get(wid, 0) + 1
+        unique[wid]   = w
 
-    unique_list = list(unique.values())
-    total_pages = max(1, math.ceil(len(unique_list) / ITEMS_PER_PAGE))
-    page = max(0, min(page, total_pages - 1))
-
-    current = unique_list[page * ITEMS_PER_PAGE: (page + 1) * ITEMS_PER_PAGE]
+    unique_list  = list(unique.values())
+    total_pages  = max(1, math.ceil(len(unique_list) / ITEMS_PER_PAGE))
+    page         = max(0, min(page, total_pages - 1))
+    current      = unique_list[page * ITEMS_PER_PAGE: (page + 1) * ITEMS_PER_PAGE]
 
     text = f"<b>🌸 {escape(name)}'s Harem — Page {page + 1}/{total_pages}</b>\n"
     if filter_rarity:
         text += f"<b>Filter: {RARITY_EMOJI.get(filter_rarity, '')} {filter_rarity}</b>\n"
     text += "\n"
 
-    # Group by rarity
     grouped = {}
     for w in current:
         r = w.get("rarity", "Common")
@@ -97,7 +86,7 @@ async def build_harem_text(
         emoji = RARITY_EMOJI.get(rarity, "◈")
         text += f"<b>{emoji} {rarity}</b>\n"
         for w in chars:
-            wid = w.get("waifu_id", w.get("name"))
+            wid   = w.get("waifu_id", w.get("name"))
             count = counts.get(wid, 1)
             text += f"  ◈ {w['name']} ×{count}\n"
         text += "\n"
@@ -105,52 +94,46 @@ async def build_harem_text(
     return text, total_pages
 
 
-def build_harem_keyboard(
+def build_harem_raw_kb(
     page: int,
     total_pages: int,
     user_id: int,
     filter_rarity: str | None,
-) -> InlineKeyboardMarkup:
-    fr = filter_rarity or "None"
+) -> list:
+    fr  = filter_rarity or "None"
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("◀️", callback_data=f"harem:{page-1}:{user_id}:{fr}"))
+        nav.append(btn("◀️", callback_data=f"harem:{page-1}:{user_id}:{fr}", style="primary", emoji_id="5238162283368035495"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("▶️", callback_data=f"harem:{page+1}:{user_id}:{fr}"))
+        nav.append(btn("▶️", callback_data=f"harem:{page+1}:{user_id}:{fr}", style="primary", emoji_id="5253539825360843975"))
 
-    keyboard = [
-        [
-            InlineKeyboardButton("🔍 Search", switch_inline_query_current_chat=f"col.{user_id}"),
-            InlineKeyboardButton("🎨 Filter", callback_data=f"hmode:{user_id}"),
-        ]
-    ]
+    rows = [row(
+        btn("🔍 sᴇᴀʀᴄʜ",  switch_current=f"col.{user_id}",              style="primary", emoji_id="5249244862359812334"),
+        btn("🎨 ғɪʟᴛᴇʀ",   callback_data=f"hmode:{user_id}",             style="success", emoji_id="5238162283368035495"),
+    )]
     if nav:
-        keyboard.append(nav)
-
-    return InlineKeyboardMarkup(keyboard)
+        rows.append(nav)
+    return rows
 
 
 async def get_display_waifu(user_id: int, waifus: list) -> dict | None:
-    """Pick fav waifu for display, else random."""
     user = await collectiondb.find_one({"user_id": user_id})
     if user and user.get("favourites"):
         fav_id = user["favourites"][0]
-        fav = next((w for w in waifus if w.get("waifu_id") == fav_id), None)
+        fav    = next((w for w in waifus if w.get("waifu_id") == fav_id), None)
         if fav:
             return fav
     return random.choice(waifus) if waifus else None
 
 
-# ── /harem Command ────────────────────────────────────────────────────────────
 @app.on_message(filters.command(["harem", "collection"]))
 async def harem_handler(client: Client, message: Message):
     user_id = message.from_user.id
 
-    # Check if viewing someone else's harem
     if message.reply_to_message:
-        target = message.reply_to_message.from_user
+        target  = message.reply_to_message.from_user
         user_id = target.id
-        name = target.first_name
+        name    = target.first_name
     else:
         name = message.from_user.first_name
 
@@ -163,22 +146,24 @@ async def harem_handler(client: Client, message: Message):
 
     filter_rarity = await get_user_filter(user_id)
     text, total_pages = await build_harem_text(name, waifus, 0, filter_rarity)
-    keyboard = build_harem_keyboard(0, total_pages, user_id, filter_rarity)
+    raw_kb  = build_harem_raw_kb(0, total_pages, user_id, filter_rarity)
     display = await get_display_waifu(user_id, waifus)
 
     if display and display.get("img_url"):
         msg = await message.reply_photo(
             photo=display["img_url"],
             caption=text,
-            reply_markup=keyboard,
+            reply_markup=to_pyrogram(raw_kb),
             parse_mode=enums.ParseMode.HTML,
         )
     else:
         msg = await message.reply_text(
             text,
-            reply_markup=keyboard,
+            reply_markup=to_pyrogram(raw_kb),
             parse_mode=enums.ParseMode.HTML,
         )
+
+    await inject_styled(msg.chat.id, msg.id, raw_kb)
 
     async def _auto_delete():
         await asyncio.sleep(AUTO_DELETE)
@@ -190,64 +175,61 @@ async def harem_handler(client: Client, message: Message):
     asyncio.create_task(_auto_delete())
 
 
-# ── Harem Pagination Callback ─────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^harem:"))
 async def harem_callback(client: Client, cq: CallbackQuery):
     _, page, user_id, fr = cq.data.split(":")
-    page = int(page)
-    user_id = int(user_id)
+    page          = int(page)
+    user_id       = int(user_id)
     filter_rarity = None if fr == "None" else fr
 
     if cq.from_user.id != user_id:
         return await cq.answer("This is not your harem! 😤", show_alert=True)
 
-    user = await client.get_users(user_id)
-    name = user.first_name
-
+    user   = await client.get_users(user_id)
+    name   = user.first_name
     waifus = await get_user_collection(user_id)
     if not waifus:
         return await cq.answer("No waifus found!", show_alert=True)
 
     text, total_pages = await build_harem_text(name, waifus, page, filter_rarity)
-    keyboard = build_harem_keyboard(page, total_pages, user_id, filter_rarity)
+    raw_kb  = build_harem_raw_kb(page, total_pages, user_id, filter_rarity)
     display = await get_display_waifu(user_id, waifus)
 
     try:
         if display and display.get("img_url"):
             await cq.message.edit_media(
                 media=InputMediaPhoto(display["img_url"], caption=text, parse_mode=enums.ParseMode.HTML),
-                reply_markup=keyboard,
+                reply_markup=to_pyrogram(raw_kb),
             )
         else:
-            await cq.message.edit_text(text, reply_markup=keyboard, parse_mode=enums.ParseMode.HTML)
+            await cq.message.edit_text(text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML)
     except Exception:
         pass
 
+    await inject_styled(cq.message.chat.id, cq.message.id, raw_kb)
     await cq.answer()
 
 
-# ── /hmode Filter ─────────────────────────────────────────────────────────────
 @app.on_message(filters.command("hmode"))
 async def hmode_handler(client: Client, message: Message):
     user_id = message.from_user.id
-    keyboard = []
-    row = []
-
+    raw_kb  = []
+    raw_row = []
     for i, (rarity, emoji) in enumerate(RARITY_EMOJI.items(), 1):
-        row.append(InlineKeyboardButton(f"{emoji} {rarity}", callback_data=f"set_rarity:{user_id}:{rarity}"))
+        raw_row.append(btn(f"{emoji} {rarity}", callback_data=f"set_rarity:{user_id}:{rarity}", style="primary", emoji_id="6291837599254322363"))
         if i % 2 == 0:
-            keyboard.append(row)
-            row = []
-    if row:
-        keyboard.append(row)
+            raw_kb.append(raw_row)
+            raw_row = []
+    if raw_row:
+        raw_kb.append(raw_row)
+    raw_kb.append([btn("🌸 sʜᴏᴡ ᴀʟʟ", callback_data=f"set_rarity:{user_id}:None", style="success", emoji_id="6291837599254322363")])
 
-    keyboard.append([InlineKeyboardButton("🌸 Show All", callback_data=f"set_rarity:{user_id}:None")])
-
-    await message.reply_text(
+    msg = await message.reply_text(
         "🎨 <b>Select rarity to filter your harem:</b>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=to_pyrogram(raw_kb),
         parse_mode=enums.ParseMode.HTML,
     )
+    await inject_styled(msg.chat.id, msg.id, raw_kb)
 
 
 @app.on_callback_query(filters.regex(r"^hmode:"))
@@ -256,29 +238,33 @@ async def hmode_callback(client: Client, cq: CallbackQuery):
     if cq.from_user.id != user_id:
         return await cq.answer("Not your harem!", show_alert=True)
 
-    keyboard = []
-    row = []
+    raw_kb  = []
+    raw_row = []
     for i, (rarity, emoji) in enumerate(RARITY_EMOJI.items(), 1):
-        row.append(InlineKeyboardButton(f"{emoji} {rarity}", callback_data=f"set_rarity:{user_id}:{rarity}"))
+        raw_row.append(btn(f"{emoji} {rarity}", callback_data=f"set_rarity:{user_id}:{rarity}", style="primary", emoji_id="6291837599254322363"))
         if i % 2 == 0:
-            keyboard.append(row)
-            row = []
-    if row:
-        keyboard.append(row)
-    keyboard.append([InlineKeyboardButton("🌸 Show All", callback_data=f"set_rarity:{user_id}:None")])
+            raw_kb.append(raw_row)
+            raw_row = []
+    if raw_row:
+        raw_kb.append(raw_row)
+    raw_kb.append([btn("🌸 sʜᴏᴡ ᴀʟʟ", callback_data=f"set_rarity:{user_id}:None", style="success", emoji_id="6291837599254322363")])
 
-    await cq.message.edit_text(
-        "🎨 <b>Select rarity to filter your harem:</b>",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=enums.ParseMode.HTML,
-    )
+    try:
+        await cq.message.edit_text(
+            "🎨 <b>Select rarity to filter your harem:</b>",
+            reply_markup=to_pyrogram(raw_kb),
+            parse_mode=enums.ParseMode.HTML,
+        )
+    except Exception:
+        pass
+    await inject_styled(cq.message.chat.id, cq.message.id, raw_kb)
     await cq.answer()
 
 
 @app.on_callback_query(filters.regex(r"^set_rarity:"))
 async def set_rarity_callback(client: Client, cq: CallbackQuery):
     _, user_id, rarity = cq.data.split(":")
-    user_id = int(user_id)
+    user_id       = int(user_id)
     filter_rarity = None if rarity == "None" else rarity
 
     if cq.from_user.id != user_id:
@@ -289,4 +275,3 @@ async def set_rarity_callback(client: Client, cq: CallbackQuery):
     label = f"{RARITY_EMOJI.get(filter_rarity, '')} {filter_rarity}" if filter_rarity else "All Rarities"
     await cq.message.edit_text(f"✅ Filter set to: <b>{label}</b>", parse_mode=enums.ParseMode.HTML)
     await cq.answer(f"Filter → {label}", show_alert=False)
-

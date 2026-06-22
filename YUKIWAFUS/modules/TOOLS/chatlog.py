@@ -2,11 +2,12 @@ import random
 
 from pyrogram import Client, filters, enums
 from pyrogram.errors import RPCError
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
+from pyrogram.types import Message
 
 import config
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import chatsdb, onoffdb
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled
 
 
 async def _logger_on() -> bool:
@@ -44,8 +45,8 @@ async def join_watcher(client: Client, message: Message):
         except RPCError:
             link = None
 
-        username  = f"@{chat.username}" if chat.username else "ᴘʀɪᴠᴀᴛᴇ ɢʀᴏᴜᴘ"
-        added_by  = (
+        username = f"@{chat.username}" if chat.username else "ᴘʀɪᴠᴀᴛᴇ ɢʀᴏᴜᴘ"
+        added_by = (
             f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.first_name}</a>"
             if message.from_user else "ᴜɴᴋɴᴏᴡɴ"
         )
@@ -66,22 +67,22 @@ async def join_watcher(client: Client, message: Message):
             f"</blockquote>"
         )
 
-        keyboard = (
-            InlineKeyboardMarkup([[
-                InlineKeyboardButton("sᴇᴇ ɢʀᴏᴜᴘ 👀", url=link)
-            ]])
+        raw_kb = (
+            [row(btn("sᴇᴇ ɢʀᴏᴜᴘ 👀", url=link, style="primary", emoji_id="5249244862359812334"))]
             if link else None
         )
 
         try:
-            await app.send_photo(
+            msg = await app.send_photo(
                 config.LOG_CHANNEL,
                 photo=random.choice(config.WAIFU_PICS),
                 caption=caption,
                 parse_mode=enums.ParseMode.HTML,
                 has_spoiler=True,
-                reply_markup=keyboard,
+                reply_markup=to_pyrogram(raw_kb) if raw_kb else None,
             )
+            if raw_kb:
+                await inject_styled(config.LOG_CHANNEL, msg.id, raw_kb)
         except Exception:
             pass
 
@@ -136,4 +137,3 @@ async def left_watcher(client: Client, message: Message):
         )
     except Exception:
         pass
-  

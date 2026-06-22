@@ -3,8 +3,6 @@ import html
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
 )
 
@@ -17,11 +15,11 @@ from YUKIWAFUS.database.Mangodb import (
     game_statsdb,
 )
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled, edit_styled_caption
 
 TOP_LIMIT = 10
 MEDALS    = ["🥇", "🥈", "🥉"]
 
-# Tab constants
 TAB_WAIFUS   = "waifus"
 TAB_COINS    = "coins"
 TAB_GUESSERS = "guessers"
@@ -32,19 +30,9 @@ def _medal(i: int) -> str:
     return MEDALS[i] if i < 3 else f"<b>{i + 1}.</b>"
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ DATA FETCHERS
-# ══════════════════════════════════════════════════════════════════════════════
-
 async def _fetch_waifus() -> str:
     pipeline = [
-        {
-            "$project": {
-                "user_id":    1,
-                "first_name": 1,
-                "waifu_count": {"$size": {"$ifNull": ["$waifus", []]}},
-            }
-        },
+        {"$project": {"user_id": 1, "first_name": 1, "waifu_count": {"$size": {"$ifNull": ["$waifus", []]}}}},
         {"$sort":  {"waifu_count": -1}},
         {"$limit": TOP_LIMIT},
     ]
@@ -56,7 +44,6 @@ async def _fetch_waifus() -> str:
         f"<b>{sc('Top Waifu Collectors')}</b>"
         f"</blockquote>\n\n"
     )
-
     if not data:
         return text + f"<i>{sc('No data yet')}~</i>"
 
@@ -70,60 +57,39 @@ async def _fetch_waifus() -> str:
 
 
 async def _fetch_coins() -> str:
-    data = await balancedb.find(
-        {}, {"user_id": 1, "coins": 1}
-    ).sort("coins", -1).limit(TOP_LIMIT).to_list(TOP_LIMIT)
+    data = await balancedb.find({}, {"user_id": 1, "coins": 1}).sort("coins", -1).limit(TOP_LIMIT).to_list(TOP_LIMIT)
 
     text = (
-        f"<blockquote>"
-        f"🪙 "
-        f"<b>{sc('Top Sakura Holders')}</b>"
-        f"</blockquote>\n\n"
+        f"<blockquote>🪙 <b>{sc('Top Sakura Holders')}</b></blockquote>\n\n"
     )
-
     if not data:
         return text + f"<i>{sc('No data yet')}~</i>"
 
     for i, doc in enumerate(data):
-        uid   = doc.get("user_id", 0)
-        coins = doc.get("coins", 0)
-        # Try to get name from collectiondb (has first_name cached)
-        col_doc = await collectiondb.find_one(
-            {"user_id": uid}, {"first_name": 1}
-        )
-        name = html.escape(
-            col_doc.get("first_name", str(uid)) if col_doc else str(uid)
-        )[:18]
-        text += f"{_medal(i)} <a href='tg://user?id={uid}'><b>{name}</b></a> — {coins:,} 🪙\n"
+        uid     = doc.get("user_id", 0)
+        coins   = doc.get("coins", 0)
+        col_doc = await collectiondb.find_one({"user_id": uid}, {"first_name": 1})
+        name    = html.escape(col_doc.get("first_name", str(uid)) if col_doc else str(uid))[:18]
+        text   += f"{_medal(i)} <a href='tg://user?id={uid}'><b>{name}</b></a> — {coins:,} 🪙\n"
 
     return text
 
 
 async def _fetch_guessers() -> str:
-    data = await game_statsdb.find(
-        {}, {"user_id": 1, "total_guesses": 1}
-    ).sort("total_guesses", -1).limit(TOP_LIMIT).to_list(TOP_LIMIT)
+    data = await game_statsdb.find({}, {"user_id": 1, "total_guesses": 1}).sort("total_guesses", -1).limit(TOP_LIMIT).to_list(TOP_LIMIT)
 
     text = (
-        f"<blockquote>"
-        f"🎯 "
-        f"<b>{sc('Top Guessers')}</b>"
-        f"</blockquote>\n\n"
+        f"<blockquote>🎯 <b>{sc('Top Guessers')}</b></blockquote>\n\n"
     )
-
     if not data:
         return text + f"<i>{sc('No data yet')}~</i>"
 
     for i, doc in enumerate(data):
         uid     = doc.get("user_id", 0)
         guesses = doc.get("total_guesses", 0)
-        col_doc = await collectiondb.find_one(
-            {"user_id": uid}, {"first_name": 1}
-        )
-        name = html.escape(
-            col_doc.get("first_name", str(uid)) if col_doc else str(uid)
-        )[:18]
-        text += f"{_medal(i)} <a href='tg://user?id={uid}'><b>{name}</b></a> — {guesses} 🎯\n"
+        col_doc = await collectiondb.find_one({"user_id": uid}, {"first_name": 1})
+        name    = html.escape(col_doc.get("first_name", str(uid)) if col_doc else str(uid))[:18]
+        text   += f"{_medal(i)} <a href='tg://user?id={uid}'><b>{name}</b></a> — {guesses} 🎯\n"
 
     return text
 
@@ -135,12 +101,8 @@ async def _fetch_groups() -> str:
     ).sort("guess_count", -1).limit(TOP_LIMIT).to_list(TOP_LIMIT)
 
     text = (
-        f"<blockquote>"
-        f"🏘 "
-        f"<b>{sc('Top Groups')}</b>"
-        f"</blockquote>\n\n"
+        f"<blockquote>🏘 <b>{sc('Top Groups')}</b></blockquote>\n\n"
     )
-
     if not data:
         return text + f"<i>{sc('Groups ranked after first correct guess')}~</i>"
 
@@ -152,33 +114,6 @@ async def _fetch_groups() -> str:
     return text
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ KEYBOARD BUILDER
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _build_keyboard(active: str) -> InlineKeyboardMarkup:
-    def _btn(label: str, tab: str) -> InlineKeyboardButton:
-        prefix = "• " if tab == active else ""
-        return InlineKeyboardButton(
-            f"{prefix}{label}", callback_data=f"rank:{tab}"
-        )
-
-    return InlineKeyboardMarkup([
-        [
-            _btn("🌸 Waifus",   TAB_WAIFUS),
-            _btn("🪙 Coins",    TAB_COINS),
-        ],
-        [
-            _btn("🎯 Guessers", TAB_GUESSERS),
-            _btn("🏘 Groups",   TAB_GROUPS),
-        ],
-    ])
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ TAB FETCHER MAP
-# ══════════════════════════════════════════════════════════════════════════════
-
 _TAB_FETCH = {
     TAB_WAIFUS:   _fetch_waifus,
     TAB_COINS:    _fetch_coins,
@@ -187,9 +122,18 @@ _TAB_FETCH = {
 }
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /rank COMMAND
-# ══════════════════════════════════════════════════════════════════════════════
+def _build_raw_kb(active: str) -> list:
+    def _b(label: str, tab: str) -> dict:
+        prefix = "• " if tab == active else ""
+        styles = {TAB_WAIFUS: "success", TAB_COINS: "primary", TAB_GUESSERS: "danger", TAB_GROUPS: "primary"}
+        emojis = {TAB_WAIFUS: "6291837599254322363", TAB_COINS: "6001483331709966655", TAB_GUESSERS: "6294063539069917326", TAB_GROUPS: "6291835288561917135"}
+        return btn(f"{prefix}{label}", callback_data=f"rank:{tab}", style=styles[tab], emoji_id=emojis[tab])
+
+    return [
+        row(_b("🌸 ᴡᴀɪғᴜs",   TAB_WAIFUS),   _b("🪙 ᴄᴏɪɴs",    TAB_COINS)),
+        row(_b("🎯 ɢᴜᴇssᴇʀs", TAB_GUESSERS), _b("🏘 ɢʀᴏᴜᴘs",   TAB_GROUPS)),
+    ]
+
 
 @app.on_message(filters.command(["rank", "leaderboard", "top", "lb"]))
 async def rank_cmd(client: Client, message: Message):
@@ -198,73 +142,40 @@ async def rank_cmd(client: Client, message: Message):
         parse_mode=enums.ParseMode.HTML,
     )
 
-    text     = await _fetch_waifus()
-    keyboard = _build_keyboard(TAB_WAIFUS)
+    text   = await _fetch_waifus()
+    raw_kb = _build_raw_kb(TAB_WAIFUS)
 
     await loading.delete()
 
-    await message.reply_photo(
+    msg = await message.reply_photo(
         photo        = config.WAIFU_PICS[0],
         caption      = text,
         parse_mode   = enums.ParseMode.HTML,
-        reply_markup = keyboard,
+        reply_markup = to_pyrogram(raw_kb),
         has_spoiler  = True,
     )
+    await inject_styled(msg.chat.id, msg.id, raw_kb)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ TAB SWITCH CALLBACK
-# ══════════════════════════════════════════════════════════════════════════════
 
 @app.on_callback_query(filters.regex(r"^rank:(\w+)$"))
 async def rank_tab_cb(client: Client, cq: CallbackQuery):
-    tab = cq.data.split(":")[1]
-
+    tab   = cq.data.split(":")[1]
     fetch = _TAB_FETCH.get(tab)
     if not fetch:
         return await cq.answer()
 
-    # Show loading indicator
     await cq.answer(f"⏳ {sc('Loading')}...")
 
-    text     = await fetch()
-    keyboard = _build_keyboard(tab)
+    text   = await fetch()
+    raw_kb = _build_raw_kb(tab)
 
-    try:
-        await cq.message.edit_caption(
-            text,
-            parse_mode   = enums.ParseMode.HTML,
-            reply_markup = keyboard,
-        )
-    except Exception:
-        pass
+    await edit_styled_caption(cq.message.chat.id, cq.message.id, text, raw_kb)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# ✅ /ctop — GROUP TOP (in-chat leaderboard)
-# ══════════════════════════════════════════════════════════════════════════════
 
 @app.on_message(filters.command("ctop") & filters.group)
 async def ctop_cmd(client: Client, message: Message):
     chat_id = message.chat.id
 
-    pipeline = [
-        {"$match": {"chat_id": chat_id}},
-        {"$unwind": "$user_guesses"},
-        {
-            "$group": {
-                "_id":       "$user_guesses.user_id",
-                "count":     {"$sum": "$user_guesses.count"},
-                "first_name": {"$first": "$user_guesses.first_name"},
-            }
-        },
-        {"$sort":  {"count": -1}},
-        {"$limit": TOP_LIMIT},
-    ]
-
-    # Fallback: use game_statsdb (global guesses, not per-group)
-    # For per-group tracking, guess.py needs to write to chatsdb user_guesses
-    # For now use game_statsdb as approximation
     data = await game_statsdb.find(
         {}, {"user_id": 1, "total_guesses": 1}
     ).sort("total_guesses", -1).limit(TOP_LIMIT).to_list(TOP_LIMIT)
@@ -283,10 +194,8 @@ async def ctop_cmd(client: Client, message: Message):
             uid     = doc.get("user_id", 0)
             guesses = doc.get("total_guesses", 0)
             col_doc = await collectiondb.find_one({"user_id": uid}, {"first_name": 1})
-            name    = html.escape(
-                col_doc.get("first_name", str(uid)) if col_doc else str(uid)
-            )[:18]
-            text += f"{_medal(i)} <a href='tg://user?id={uid}'><b>{name}</b></a> — {guesses} 🎯\n"
+            name    = html.escape(col_doc.get("first_name", str(uid)) if col_doc else str(uid))[:18]
+            text   += f"{_medal(i)} <a href='tg://user?id={uid}'><b>{name}</b></a> — {guesses} 🎯\n"
 
     await message.reply_photo(
         photo       = config.WAIFU_PICS[0],
@@ -294,4 +203,3 @@ async def ctop_cmd(client: Client, message: Message):
         parse_mode  = enums.ParseMode.HTML,
         has_spoiler = True,
     )
-  

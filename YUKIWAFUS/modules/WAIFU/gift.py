@@ -5,8 +5,6 @@ from html import escape
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
 )
 
@@ -14,8 +12,9 @@ import config
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb, giftdb
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled, edit_styled_caption
 
-GIFT_TIMEOUT = 3600   # 1 hour auto-cancel
+GIFT_TIMEOUT = 3600
 
 RARITY_EMOJI = {
     "Common":    "⚪",
@@ -26,11 +25,9 @@ RARITY_EMOJI = {
     "Mythic":    "🔴",
 }
 
-# ── Spam lock ─────────────────────────────────────────────────────────────────
 gift_lock: set = set()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def mention(user) -> str:
     return f"<a href='tg://user?id={user.id}'>{escape(user.first_name)}</a>"
 
@@ -63,7 +60,13 @@ async def add_waifu_to_collection(user_id: int, username: str, first_name: str, 
     )
 
 
-# ── /gift <waifu_id> ──────────────────────────────────────────────────────────
+def _gift_kb(sender_id: int, waifu_id: str) -> list:
+    return [row(
+        btn(f"✅ {sc('Confirm Gift')}",  callback_data=f"gift_confirm:{sender_id}:{waifu_id}",  style="success", emoji_id="6001483331709966655"),
+        btn(f"❌ {sc('Cancel')}",         callback_data=f"gift_cancel:{sender_id}",              style="danger",  emoji_id="5998834801472182366"),
+    )]
+
+
 @app.on_message(filters.command("gift"))
 async def gift_cmd(client: Client, message: Message):
     sender = message.from_user
@@ -82,28 +85,19 @@ async def gift_cmd(client: Client, message: Message):
 
     if receiver.id == sender.id:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('You cannot gift yourself')}.</b>"
-            f"</blockquote>",
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('You cannot gift yourself')}.</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
 
     if receiver.is_bot:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('You cannot gift bots')}.</b>"
-            f"</blockquote>",
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('You cannot gift bots')}.</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
 
     if len(message.command) < 2:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='6001602353843672777'>⚠️</emoji> "
-            f"<b>{sc('Provide a waifu ID')}.</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='6001602353843672777'>⚠️</emoji> <b>{sc('Provide a waifu ID')}.</b></blockquote>\n\n"
             f"<b>{sc('Usage')} :</b> <code>/gift &lt;waifu_id&gt;</code>",
             parse_mode=enums.ParseMode.HTML,
         )
@@ -116,14 +110,10 @@ async def gift_cmd(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    # Check waifu exists in sender's collection
     waifu = await get_waifu_from_collection(sender.id, waifu_id)
     if not waifu:
         return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('Waifu not found in your collection')}.</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Waifu not found in your collection')}.</b></blockquote>\n\n"
             f"<i>{sc('Check your harem with')} /harem~</i>",
             parse_mode=enums.ParseMode.HTML,
         )
@@ -131,7 +121,6 @@ async def gift_cmd(client: Client, message: Message):
     rarity = waifu.get("rarity", "Common")
     emoji  = RARITY_EMOJI.get(rarity, "◈")
 
-    # Save pending gift in DB
     await giftdb.update_one(
         {"sender_id": sender.id},
         {
@@ -148,18 +137,7 @@ async def gift_cmd(client: Client, message: Message):
 
     gift_lock.add(sender.id)
 
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                f"✅ {sc('Confirm Gift')}",
-                callback_data=f"gift_confirm:{sender.id}:{receiver.id}:{waifu_id}",
-            ),
-            InlineKeyboardButton(
-                f"❌ {sc('Cancel')}",
-                callback_data=f"gift_cancel:{sender.id}",
-            ),
-        ]
-    ])
+    raw_kb = _gift_kb(sender.id, waifu_id)
 
     sent = await message.reply_photo(
         photo=waifu.get("img_url", config.WAIFU_PICS[0]),
@@ -175,46 +153,36 @@ async def gift_cmd(client: Client, message: Message):
             f"<i>⏳ {sc('Auto-cancels in 1 hour')}~</i>"
         ),
         parse_mode=enums.ParseMode.HTML,
-        reply_markup=keyboard,
+        reply_markup=to_pyrogram(raw_kb),
         has_spoiler=True,
     )
+    await inject_styled(sent.chat.id, sent.id, raw_kb)
 
-    # Auto-cancel after 1 hour
     asyncio.create_task(_auto_cancel_gift(sender.id, sent))
 
 
 async def _auto_cancel_gift(sender_id: int, sent_msg):
     await asyncio.sleep(GIFT_TIMEOUT)
-
-    # Check if gift still pending
     doc = await giftdb.find_one({"sender_id": sender_id})
     if not doc:
-        return  # Already completed
-
+        return
     await giftdb.delete_one({"sender_id": sender_id})
     gift_lock.discard(sender_id)
-
     try:
         await sent_msg.edit_caption(
-            f"<blockquote>"
-            f"<emoji id='5998834801472182366'>❌</emoji> "
-            f"<b>{sc('Gift expired — auto cancelled after 1 hour')}.</b>"
-            f"</blockquote>",
+            f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Gift expired — auto cancelled after 1 hour')}.</b></blockquote>",
             parse_mode=enums.ParseMode.HTML,
         )
     except Exception:
         pass
 
 
-# ── Confirm callback ──────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^gift_confirm:"))
 async def gift_confirm_cb(client: Client, cq: CallbackQuery):
     parts      = cq.data.split(":")
     sender_id  = int(parts[1])
-    receiver_id = int(parts[2])
-    waifu_id   = parts[3]
+    waifu_id   = parts[2]
 
-    # Only sender can confirm
     if cq.from_user.id != sender_id:
         return await cq.answer(sc("This is not your gift!"), show_alert=True)
 
@@ -222,9 +190,10 @@ async def gift_confirm_cb(client: Client, cq: CallbackQuery):
     if not doc:
         return await cq.answer(sc("Gift expired or already sent!"), show_alert=True)
 
-    waifu    = doc["waifu"]
-    rarity   = waifu.get("rarity", "Common")
-    emoji    = RARITY_EMOJI.get(rarity, "◈")
+    waifu       = doc["waifu"]
+    receiver_id = doc["receiver_id"]
+    rarity      = waifu.get("rarity", "Common")
+    emoji       = RARITY_EMOJI.get(rarity, "◈")
 
     try:
         receiver = await client.get_users(receiver_id)
@@ -236,40 +205,30 @@ async def gift_confirm_cb(client: Client, cq: CallbackQuery):
     except Exception:
         sender = cq.from_user
 
-    # Transfer waifu
     await remove_waifu_from_collection(sender_id, waifu_id)
-    await add_waifu_to_collection(
-        receiver_id,
-        receiver.username or "",
-        receiver.first_name,
-        waifu,
-    )
+    await add_waifu_to_collection(receiver_id, receiver.username or "", receiver.first_name, waifu)
 
-    # Clean up
     await giftdb.delete_one({"sender_id": sender_id})
     gift_lock.discard(sender_id)
 
-    await cq.edit_message_caption(
-        f"<blockquote>"
-        f"<emoji id='6001483331709966655'>✅</emoji> "
-        f"<b>{sc('Gift Sent Successfully')}!</b>"
-        f"</blockquote>\n\n"
-        f"<b>{sc('From')} :</b> {mention(sender)}\n"
-        f"<b>{sc('To')} :</b>   {mention(receiver)}\n\n"
-        f"📛 <b>{sc('Waifu')} :</b> {escape(waifu.get('name', 'Unknown'))}\n"
-        f"{emoji} <b>{sc('Rarity')} :</b> {rarity}",
-        parse_mode=enums.ParseMode.HTML,
+    await edit_styled_caption(
+        cq.message.chat.id,
+        cq.message.id,
+        (
+            f"<blockquote><emoji id='6001483331709966655'>✅</emoji> <b>{sc('Gift Sent Successfully')}!</b></blockquote>\n\n"
+            f"<b>{sc('From')} :</b> {mention(sender)}\n"
+            f"<b>{sc('To')} :</b>   {mention(receiver)}\n\n"
+            f"📛 <b>{sc('Waifu')} :</b> {escape(waifu.get('name', 'Unknown'))}\n"
+            f"{emoji} <b>{sc('Rarity')} :</b> {rarity}"
+        ),
+        [],
     )
     await cq.answer(sc("Gift sent!"), show_alert=False)
 
-    # Notify receiver in DM
     try:
         await client.send_message(
             receiver_id,
-            f"<blockquote>"
-            f"<emoji id='6294023338176028117'>🎁</emoji> "
-            f"<b>{sc('You received a waifu gift')}!</b>"
-            f"</blockquote>\n\n"
+            f"<blockquote><emoji id='6294023338176028117'>🎁</emoji> <b>{sc('You received a waifu gift')}!</b></blockquote>\n\n"
             f"<b>{sc('From')} :</b> {mention(sender)}\n"
             f"📛 <b>{sc('Waifu')} :</b> {escape(waifu.get('name', 'Unknown'))}\n"
             f"{emoji} <b>{sc('Rarity')} :</b> {rarity}\n\n"
@@ -280,7 +239,6 @@ async def gift_confirm_cb(client: Client, cq: CallbackQuery):
         pass
 
 
-# ── Cancel callback ───────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^gift_cancel:"))
 async def gift_cancel_cb(client: Client, cq: CallbackQuery):
     sender_id = int(cq.data.split(":")[1])
@@ -291,12 +249,10 @@ async def gift_cancel_cb(client: Client, cq: CallbackQuery):
     await giftdb.delete_one({"sender_id": sender_id})
     gift_lock.discard(sender_id)
 
-    await cq.edit_message_caption(
-        f"<blockquote>"
-        f"<emoji id='5998834801472182366'>❌</emoji> "
-        f"<b>{sc('Gift cancelled')}.</b>"
-        f"</blockquote>",
-        parse_mode=enums.ParseMode.HTML,
+    await edit_styled_caption(
+        cq.message.chat.id,
+        cq.message.id,
+        f"<blockquote><emoji id='5998834801472182366'>❌</emoji> <b>{sc('Gift cancelled')}.</b></blockquote>",
+        [],
     )
     await cq.answer(sc("Gift cancelled."), show_alert=False)
-          

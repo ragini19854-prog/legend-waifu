@@ -5,15 +5,14 @@ from html import escape
 from pyrogram import Client, enums, filters
 from pyrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
+    InputMediaPhoto,
     Message,
 )
 
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb, balancedb
+from YUKIWAFUS.utils.styled_buttons import btn, row, inject_styled, edit_styled_caption
 
-# ── Rarity Power ──────────────────────────────────────────────────────────────
 RARITY_POWER = {
     "Common":    100,
     "Uncommon":  200,
@@ -32,29 +31,22 @@ RARITY_EMOJI = {
     "Mythic":    "🔴",
 }
 
-BATTLE_REWARD = 100
+BATTLE_REWARD  = 100
 BATTLE_TIMEOUT = 30
 
-# ── Pending battles ───────────────────────────────────────────────────────────
-pending_battles: dict = {}  # chat_id → battle data
+pending_battles: dict = {}
 
 
-# ── DB Helpers ────────────────────────────────────────────────────────────────
 async def get_best_waifu(user_id: int) -> dict | None:
-    """Get user's highest rarity waifu for battle."""
     user = await collectiondb.find_one({"user_id": user_id})
     if not user or not user.get("waifus"):
         return None
-
     waifus = user["waifus"]
-    # Favour fav waifu if set
     favs = user.get("favourites", [])
     if favs:
         fav = next((w for w in waifus if w.get("waifu_id") == favs[0]), None)
         if fav:
             return fav
-
-    # Else pick highest rarity
     return max(waifus, key=lambda w: RARITY_POWER.get(w.get("rarity", "Common"), 0))
 
 
@@ -68,11 +60,9 @@ async def add_coins(user_id: int, amount: int) -> int:
     return (result or {}).get("coins", amount)
 
 
-# ── Battle Logic ──────────────────────────────────────────────────────────────
 def calc_power(waifu: dict) -> int:
     base = RARITY_POWER.get(waifu.get("rarity", "Common"), 100)
-    variance = random.randint(-20, 20)
-    return max(1, base + variance)
+    return max(1, base + random.randint(-20, 20))
 
 
 def battle_bar(hp: int, max_hp: int, length: int = 10) -> str:
@@ -80,10 +70,16 @@ def battle_bar(hp: int, max_hp: int, length: int = 10) -> str:
     return "█" * filled + "░" * (length - filled)
 
 
-# ── /battle Command ───────────────────────────────────────────────────────────
+def _battle_kb(challenger_id: int, opponent_id: int) -> list:
+    return [row(
+        btn("⚔️ ᴀᴄᴄᴇᴘᴛ",  callback_data=f"battle_accept:{challenger_id}:{opponent_id}",  style="success", emoji_id="6001483331709966655"),
+        btn("🏃 ᴅᴇᴄʟɪɴᴇ", callback_data=f"battle_decline:{challenger_id}:{opponent_id}", style="danger",  emoji_id="5998834801472182366"),
+    )]
+
+
 @app.on_message(filters.command("battle") & filters.group)
 async def battle_handler(client: Client, message: Message):
-    chat_id = message.chat.id
+    chat_id       = message.chat.id
     challenger_id = message.from_user.id
 
     if chat_id in pending_battles:
@@ -106,16 +102,11 @@ async def battle_handler(client: Client, message: Message):
     if not challenger_waifu:
         return await message.reply_text("❌ You have no waifus! Use /hclaim first.")
 
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⚔️ Accept", callback_data=f"battle_accept:{challenger_id}:{opponent.id}"),
-            InlineKeyboardButton("🏃 Decline", callback_data=f"battle_decline:{challenger_id}:{opponent.id}"),
-        ]
-    ])
+    raw_kb = _battle_kb(challenger_id, opponent.id)
 
     pending_battles[chat_id] = {
-        "challenger_id": challenger_id,
-        "opponent_id": opponent.id,
+        "challenger_id":    challenger_id,
+        "opponent_id":      opponent.id,
         "challenger_waifu": challenger_waifu,
     }
 
@@ -132,10 +123,9 @@ async def battle_handler(client: Client, message: Message):
             f"⏳ <b>{opponent.first_name}</b>, accept within {BATTLE_TIMEOUT}s!"
         ),
         parse_mode=enums.ParseMode.HTML,
-        reply_markup=keyboard,
     )
+    await inject_styled(msg.chat.id, msg.id, raw_kb)
 
-    # Auto-expire
     await asyncio.sleep(BATTLE_TIMEOUT)
     if chat_id in pending_battles:
         pending_battles.pop(chat_id, None)
@@ -148,13 +138,12 @@ async def battle_handler(client: Client, message: Message):
             pass
 
 
-# ── Accept Callback ───────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^battle_accept:"))
 async def battle_accept(client: Client, cq: CallbackQuery):
     _, challenger_id, opponent_id = cq.data.split(":")
     challenger_id = int(challenger_id)
-    opponent_id = int(opponent_id)
-    chat_id = cq.message.chat.id
+    opponent_id   = int(opponent_id)
+    chat_id       = cq.message.chat.id
 
     if cq.from_user.id != opponent_id:
         return await cq.answer("This challenge isn't for you!", show_alert=True)
@@ -171,53 +160,50 @@ async def battle_accept(client: Client, cq: CallbackQuery):
     challenger_waifu = battle["challenger_waifu"]
     await cq.answer("Battle started! ⚔️")
 
-    # ── Simulate Battle ───────────────────────────────────────────────────────
     c_power = calc_power(challenger_waifu)
     o_power = calc_power(opponent_waifu)
-    c_hp = c_power
-    o_hp = o_power
-    c_max = c_power
-    o_max = o_power
+    c_hp    = c_power
+    o_hp    = o_power
+    c_max   = c_power
+    o_max   = o_power
 
     ce = RARITY_EMOJI.get(challenger_waifu.get("rarity", "Common"), "◈")
     oe = RARITY_EMOJI.get(opponent_waifu.get("rarity", "Common"), "◈")
 
     challenger_user = await client.get_users(challenger_id)
-    opponent_user = await client.get_users(opponent_id)
+    opponent_user   = await client.get_users(opponent_id)
 
-    rounds = []
+    rounds    = []
     round_num = 0
     while c_hp > 0 and o_hp > 0 and round_num < 10:
         round_num += 1
         c_atk = random.randint(c_power // 4, c_power // 2)
         o_atk = random.randint(o_power // 4, o_power // 2)
-        o_hp = max(0, o_hp - c_atk)
-        c_hp = max(0, c_hp - o_atk)
+        o_hp  = max(0, o_hp - c_atk)
+        c_hp  = max(0, c_hp - o_atk)
         rounds.append((c_atk, o_atk, c_hp, o_hp))
 
-    # ── Determine Winner ──────────────────────────────────────────────────────
     if c_hp > o_hp:
-        winner_id = challenger_id
-        winner_name = escape(challenger_user.first_name)
+        winner_id    = challenger_id
+        winner_name  = escape(challenger_user.first_name)
         winner_waifu = challenger_waifu
-        loser_name = escape(opponent_user.first_name)
+        loser_name   = escape(opponent_user.first_name)
     elif o_hp > c_hp:
-        winner_id = opponent_id
-        winner_name = escape(opponent_user.first_name)
+        winner_id    = opponent_id
+        winner_name  = escape(opponent_user.first_name)
         winner_waifu = opponent_waifu
-        loser_name = escape(challenger_user.first_name)
+        loser_name   = escape(challenger_user.first_name)
     else:
-        winner_id = None
-        winner_name = "Draw"
+        winner_id    = None
+        winner_name  = "Draw"
         winner_waifu = None
-        loser_name = ""
+        loser_name   = ""
 
     new_balance = None
     if winner_id:
         new_balance = await add_coins(winner_id, BATTLE_REWARD)
 
-    # ── Build Result ──────────────────────────────────────────────────────────
-    last_round = rounds[-1] if rounds else (0, 0, c_hp, o_hp)
+    last_round              = rounds[-1] if rounds else (0, 0, c_hp, o_hp)
     _, _, final_c_hp, final_o_hp = last_round
 
     text = (
@@ -242,7 +228,6 @@ async def battle_accept(client: Client, cq: CallbackQuery):
     photo = winner_waifu["img_url"] if winner_waifu else challenger_waifu["img_url"]
 
     try:
-        from pyrogram.types import InputMediaPhoto
         await cq.message.edit_media(
             media=InputMediaPhoto(photo, caption=text, parse_mode=enums.ParseMode.HTML)
         )
@@ -250,12 +235,11 @@ async def battle_accept(client: Client, cq: CallbackQuery):
         await cq.message.reply_photo(photo=photo, caption=text, parse_mode=enums.ParseMode.HTML)
 
 
-# ── Decline Callback ──────────────────────────────────────────────────────────
 @app.on_callback_query(filters.regex(r"^battle_decline:"))
 async def battle_decline(client: Client, cq: CallbackQuery):
     _, challenger_id, opponent_id = cq.data.split(":")
     opponent_id = int(opponent_id)
-    chat_id = cq.message.chat.id
+    chat_id     = cq.message.chat.id
 
     if cq.from_user.id != opponent_id:
         return await cq.answer("This isn't your battle!", show_alert=True)
@@ -266,4 +250,3 @@ async def battle_decline(client: Client, cq: CallbackQuery):
         "🏃 Battle was declined!",
         parse_mode=enums.ParseMode.HTML,
     )
-
