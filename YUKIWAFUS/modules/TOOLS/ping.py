@@ -1,4 +1,5 @@
 import asyncio
+import os
 import platform
 from datetime import datetime
 
@@ -9,6 +10,8 @@ from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 import config
 from YUKIWAFUS import app
 from YUKIWAFUS.utils.helpers import sc
+
+PING_IMAGE = getattr(config, "PING_PIC", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "ping.png"))
 
 
 # ── System Stats ──────────────────────────────────────────────────────────────
@@ -64,7 +67,22 @@ async def ping_handler(client: Client, message: Message):
         f"  ◈ 🖱 {sc('Platform')}: <b>{platform.system()} {platform.release()}</b>"
     )
 
-    await resp.edit_text(
+    await resp.delete()
+
+    if os.path.isfile(PING_IMAGE):
+        try:
+            await message.reply_photo(
+                photo=PING_IMAGE,
+                caption=text,
+                parse_mode=enums.ParseMode.HTML,
+                has_spoiler=True,
+                reply_markup=keyboard,
+            )
+            return
+        except Exception:
+            pass
+
+    await message.reply_text(
         text,
         parse_mode=enums.ParseMode.HTML,
         reply_markup=keyboard,

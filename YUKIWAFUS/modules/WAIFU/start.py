@@ -69,7 +69,7 @@ _START_PRIVATE = (
     "<blockquote>"
     "<b><emoji id='6294023338176028117'>💀</emoji> "
     "✦ᴘᴏᴡєʀєᴅ ʙʏ » "
-    "<spoiler>── ᴍᴀᴅᴀʀᴀ ──</spoiler>"
+    "<spoiler>── ᴍᴀᴊᴀʀᴀ ──</spoiler>"
     "</b>"
     "</blockquote>\n"
     "•──────────────────────•"
@@ -125,13 +125,12 @@ def _row(*buttons) -> list:
     return [b for b in buttons if b is not None]
 
 
-def _private_panel() -> list:
-    bot_username = app.username or ""
+def _private_panel(bot_username: str = "") -> list:
     rows = []
 
     rows.append(_row(
         btn("𝚫ᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ✧",
-            url=f"https://t.me/{bot_username}?startgroup=true",
+            url=f"https://t.me/{bot_username}?startgroup=true" if bot_username else None,
             style="success", emoji_id="5235682785863153026"),
     ))
 
@@ -154,11 +153,10 @@ def _private_panel() -> list:
     return rows
 
 
-def _group_panel() -> list:
-    bot_username = app.username or ""
+def _group_panel(bot_username: str = "") -> list:
     return [_row(
         btn("˹ 𝐃ᴍ ᴍᴇ ˼",
-            url=f"https://t.me/{bot_username}?start=hi",
+            url=f"https://t.me/{bot_username}?start=hi" if bot_username else None,
             style="success", emoji_id="5249244862359812334"),
         btn("˹ 𝐒ᴜᴘᴘᴏʀᴛ ˼",
             url=config.SUPPORT_CHAT, style="danger", emoji_id="5206523956537865948"),
@@ -412,7 +410,7 @@ async def start_private(client: Client, message: Message):
         chat_id,
         START_PIC or random.choice(WAIFU_PICS),
         caption,
-        _private_panel(),
+        _private_panel(bot_me.username or ""),
         effect_id=EFFECT_HEARTS,
     )
 
@@ -472,7 +470,7 @@ async def start_group(client: Client, message: Message):
         chat_id,
         START_PIC or random.choice(WAIFU_PICS),
         caption,
-        _group_panel(),
+        _group_panel(bot_me.username or ""),
         reply_to_id=message.id,
         effect_id=EFFECT_CONFETTI,
     )
@@ -519,7 +517,7 @@ async def on_bot_added(client: Client, message: Message):
         )
 
         msg = await message.reply_text(text, parse_mode=enums.ParseMode.HTML)
-        await _inject_markup(message.chat.id, msg.id, _group_panel())
+        await _inject_markup(message.chat.id, msg.id, _group_panel(bot_me.username or ""))
 
         if await is_logger_on() and config.LOG_CHANNEL:
             try:
@@ -577,7 +575,7 @@ async def back_to_home_cb(client, cq):
         "message_id":   cq.message.id,
         "caption":      caption,
         "parse_mode":   "HTML",
-        "reply_markup": {"inline_keyboard": _private_panel()},
+        "reply_markup": {"inline_keyboard": _private_panel(bot_me.username or "")},
     })
 
     if not ok.get("ok"):

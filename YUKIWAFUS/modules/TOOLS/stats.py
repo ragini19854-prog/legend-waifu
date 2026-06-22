@@ -54,7 +54,7 @@ async def stats_handler(client: Client, message: Message):
     bot_info       = await client.get_me()
 
     text = (
-        f"<blockquote>📊 <b>{sc('Yukiwafus Stats')}</b></blockquote>\n\n"
+        f"<blockquote>📊 <b>{sc('Majara Stats')}</b></blockquote>\n\n"
 
         f"🤖 <b>{sc('Bot')}:</b>\n"
         f"  ◈ {sc('Name')}: <b>{bot_info.first_name}</b>\n"
@@ -85,7 +85,7 @@ async def botstats_handler(client: Client, message: Message):
     total_waifus = (api_stats or {}).get("total", "N/A")
 
     text = (
-        f"<blockquote>🌸 <b>{sc('Yukiwafus')}</b></blockquote>\n\n"
+        f"<blockquote>🌸 <b>{sc('Majara')}</b></blockquote>\n\n"
         f"👤 {sc('Users')}: <b>{total_users}</b>\n"
         f"👥 {sc('Groups')}: <b>{total_groups}</b>\n"
         f"🎴 {sc('Waifus in DB')}: <b>{total_waifus}</b>\n"

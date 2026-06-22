@@ -1,3 +1,4 @@
+import os
 import aiohttp
 from typing import Union
 
@@ -12,6 +13,14 @@ from pyrogram.types import (
 import config
 from YUKIWAFUS import app
 from YUKIWAFUS.utils.helpers import sc
+
+
+def _help_photo() -> str:
+    """Return local help.png if it exists, else fall back to first WAIFU_PIC."""
+    local = getattr(config, "HELP_PIC", "")
+    if local and os.path.isfile(local):
+        return local
+    return config.WAIFU_PICS[0]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ✅ RAW BOT API HELPERS  (same pattern as start.py)
@@ -205,7 +214,7 @@ _HELP_CAPTION = (
     "┌─── ˹ <b>ʜᴇʟᴘ ᴍᴇɴᴜ</b> ˼ ───●\n\n"
     "<blockquote>"
     "<emoji id='6291837599254322363'>🌸</emoji> "
-    "<b>ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ʏᴜᴋɪ ᴡᴀғᴜs ʜᴇʟᴘ!</b>\n\n"
+    "<b>ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴍᴀᴊᴀʀᴀ ʜᴇʟᴘ!</b>\n\n"
     "<emoji id='6294063539069917326'>⚡</emoji> "
     "ᴄʜᴏᴏsᴇ ᴀ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ sᴇᴇ ᴄᴏᴍᴍᴀɴᴅs~"
     "</blockquote>\n\n"
@@ -213,9 +222,8 @@ _HELP_CAPTION = (
     "<blockquote>"
     "<b><emoji id='6294023338176028117'>💀</emoji> "
     "✦ᴘᴏᴡєʀєᴅ ʙʏ » "
-    "<a href='https://t.me/yukiwafus'>"
-    "<spoiler>── ʏᴜᴋɪ ᴡᴀғᴜs ──</spoiler>"
-    "</a></b>"
+    "<spoiler>── ᴍᴀᴊᴀʀᴀ ──</spoiler>"
+    "</b>"
     "</blockquote>\n"
     "•──────────────────────•"
 )
@@ -262,9 +270,10 @@ def _help_back_panel() -> list:
     ]]
 
 
-def _group_help_panel() -> list:
+def _group_help_panel(bot_username: str = "") -> list:
     """Group help → DM bot button."""
-    bot_username = app.username or ""
+    if not bot_username:
+        return []
     return [[
         InlineKeyboardButton(
             "˹ ʜᴇʟᴘ ɪɴ ᴅᴍ ˼",
@@ -287,9 +296,37 @@ async def help_private_cmd(client: Client, message: Message):
     markup  = {"inline_keyboard": _help_main_panel(back_to_start=False)}
 
     # ── Try 1: photo via raw Bot API ──────────────────────────────────────────
+    help_photo = _help_photo()
+    _is_local_help = os.path.isfile(help_photo)
+
+    if _is_local_help:
+        # Local file — use Pyrogram directly (Bot API can't handle local paths)
+        try:
+            rows = []
+            for row in _help_main_panel(back_to_start=False):
+                r = []
+                for b in row:
+                    if b.get("callback_data"):
+                        r.append(InlineKeyboardButton(b["text"], callback_data=b["callback_data"]))
+                    elif b.get("url"):
+                        r.append(InlineKeyboardButton(b["text"], url=b["url"]))
+                if r:
+                    rows.append(r)
+            await client.send_photo(
+                chat_id,
+                photo=help_photo,
+                caption=_HELP_CAPTION,
+                parse_mode=enums.ParseMode.HTML,
+                has_spoiler=True,
+                reply_markup=InlineKeyboardMarkup(rows) if rows else None,
+            )
+            return
+        except Exception:
+            pass
+
     res = await _bot_api("sendPhoto", {
         "chat_id":     chat_id,
-        "photo":       config.WAIFU_PICS[0],
+        "photo":       help_photo,
         "caption":     _HELP_CAPTION,
         "parse_mode":  "HTML",
         "has_spoiler": True,
@@ -317,7 +354,7 @@ async def help_private_cmd(client: Client, message: Message):
                 rows.append(r)
         await client.send_photo(
             chat_id,
-            photo=config.WAIFU_PICS[0],
+            photo=help_photo,
             caption=_HELP_CAPTION,
             parse_mode=enums.ParseMode.HTML,
             has_spoiler=True,

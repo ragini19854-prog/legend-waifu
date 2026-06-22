@@ -68,7 +68,10 @@ WAIFU_PICS = [
 ]
 
 import os as _os
-START_PIC = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "YUKIWAFUS", "assets", "start.png")
+_ASSETS = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "YUKIWAFUS", "assets")
+START_PIC = _os.path.join(_ASSETS, "start.png")
+PING_PIC  = _os.path.join(_ASSETS, "ping.png")
+HELP_PIC  = _os.path.join(_ASSETS, "help.png")
 
 FIRE_EMOJI = "🔥"
 

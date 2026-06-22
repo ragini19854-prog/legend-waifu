@@ -39,7 +39,7 @@ async def init():
     _log.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     _log.info(
         "╔═════ஜ۩۞۩ஜ════╗\n"
-        "  ✦ Madara Waifu Started ✦\n"
+        "  ✦ Majara Started ✦\n"
         "╚═════ஜ۩۞۩ஜ════╝"
     )
 
@@ -57,7 +57,7 @@ async def init():
 
     await idle()
     await app.stop()
-    _log.info("Madara Waifu Stopped.")
+    _log.info("Majara Stopped.")
     
 
 if __name__ == "__main__":
