@@ -69,13 +69,20 @@ async def inject_styled(chat_id: int, message_id: int, raw_kb: list) -> None:
     if not raw_kb:
         return
     try:
-        await _bot_api("editMessageReplyMarkup", {
+        result = await _bot_api("editMessageReplyMarkup", {
             "chat_id":      chat_id,
             "message_id":   message_id,
             "reply_markup": {"inline_keyboard": raw_kb},
         })
-    except Exception:
-        pass
+        if not result.get("ok"):
+            import logging
+            logging.getLogger(__name__).warning(
+                "inject_styled failed for msg %s in %s: %s",
+                message_id, chat_id, result.get("description", result),
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("inject_styled exception: %s", e)
 
 
 async def edit_styled_caption(

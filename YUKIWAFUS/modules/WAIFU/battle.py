@@ -11,7 +11,7 @@ from pyrogram.types import (
 
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb, balancedb
-from YUKIWAFUS.utils.styled_buttons import btn, row, inject_styled, edit_styled_caption
+from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled, edit_styled_caption
 
 RARITY_POWER = {
     "Common":    100,
@@ -123,6 +123,7 @@ async def battle_handler(client: Client, message: Message):
             f"⏳ <b>{opponent.first_name}</b>, accept within {BATTLE_TIMEOUT}s!"
         ),
         parse_mode=enums.ParseMode.HTML,
+        reply_markup=to_pyrogram(raw_kb),
     )
     await inject_styled(msg.chat.id, msg.id, raw_kb)
 
