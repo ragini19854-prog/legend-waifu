@@ -60,10 +60,10 @@ async def add_waifu_to_collection(user_id: int, username: str, first_name: str, 
     )
 
 
-def _gift_kb(sender_id: int, waifu_id: str) -> list:
+def _gift_kb(sender_id: int, receiver_id: int, waifu_id: str) -> list:
     return [row(
-        btn(f"✅ {sc('Confirm Gift')}",  callback_data=f"gift_confirm:{sender_id}:{waifu_id}",  style="success", emoji_id="6001483331709966655"),
-        btn(f"❌ {sc('Cancel')}",         callback_data=f"gift_cancel:{sender_id}",              style="danger",  emoji_id="5998834801472182366"),
+        btn(f"✅ {sc('Confirm Gift')}",  callback_data=f"gift_confirm:{sender_id}:{receiver_id}:{waifu_id}", style="success", emoji_id="6001483331709966655"),
+        btn(f"❌ {sc('Cancel')}",         callback_data=f"gift_cancel:{sender_id}",                          style="danger",  emoji_id="5998834801472182366"),
     )]
 
 
@@ -137,7 +137,7 @@ async def gift_cmd(client: Client, message: Message):
 
     gift_lock.add(sender.id)
 
-    raw_kb = _gift_kb(sender.id, waifu_id)
+    raw_kb = _gift_kb(sender.id, receiver.id, waifu_id)
 
     sent = await message.reply_photo(
         photo=waifu.get("img_url", config.WAIFU_PICS[0]),
@@ -179,9 +179,10 @@ async def _auto_cancel_gift(sender_id: int, sent_msg):
 
 @app.on_callback_query(filters.regex(r"^gift_confirm:"))
 async def gift_confirm_cb(client: Client, cq: CallbackQuery):
-    parts      = cq.data.split(":")
-    sender_id  = int(parts[1])
-    waifu_id   = parts[2]
+    parts       = cq.data.split(":")
+    sender_id   = int(parts[1])
+    receiver_id = int(parts[2])
+    waifu_id    = parts[3]
 
     if cq.from_user.id != sender_id:
         return await cq.answer(sc("This is not your gift!"), show_alert=True)
@@ -190,8 +191,7 @@ async def gift_confirm_cb(client: Client, cq: CallbackQuery):
     if not doc:
         return await cq.answer(sc("Gift expired or already sent!"), show_alert=True)
 
-    waifu       = doc["waifu"]
-    receiver_id = doc["receiver_id"]
+    waifu = doc["waifu"]
     rarity      = waifu.get("rarity", "Common")
     emoji       = RARITY_EMOJI.get(rarity, "◈")
 
