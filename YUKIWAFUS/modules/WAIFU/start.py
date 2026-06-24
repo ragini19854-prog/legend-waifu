@@ -129,9 +129,7 @@ def _private_panel(bot_username: str = "") -> list:
     rows = []
 
     rows.append(_row(
-        btn("𝚫ᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ✧",
-            url=f"https://t.me/{bot_username}?startgroup=true" if bot_username else None,
-            style="success", emoji_id="5235682785863153026"),
+        btn("𝚫ᴅᴅ ᴛᴏ ɢʀᴏᴜᴘ ✧", url=f"https://t.me/{bot_username}?startgroup=true" if bot_username else None,   style="success", emoji_id="5235682785863153026"),
     ))
 
     support_btn = btn("˹ 𝐒ᴜᴘᴘᴏʀᴛ ˼",
