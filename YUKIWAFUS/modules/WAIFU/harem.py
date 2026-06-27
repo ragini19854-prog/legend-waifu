@@ -103,17 +103,18 @@ def build_harem_raw_kb(
     total_pages: int,
     user_id: int,
     filter_rarity: str | None,
+    search: str = "",
 ) -> list:
     fr  = filter_rarity or "None"
+    enc = search.replace(":", "_").replace("|", "_")[:20] if search else ""
     nav = []
     if page > 0:
-        nav.append(btn("◀️", callback_data=f"harem:{page-1}:{user_id}:{fr}", style="primary", emoji_id="5238162283368035495"))
+        nav.append(btn("◀️", callback_data=f"harem:{page-1}:{user_id}:{fr}:{enc}", style="primary", emoji_id="5238162283368035495"))
     if page < total_pages - 1:
-        nav.append(btn("▶️", callback_data=f"harem:{page+1}:{user_id}:{fr}", style="primary", emoji_id="5253539825360843975"))
+        nav.append(btn("▶️", callback_data=f"harem:{page+1}:{user_id}:{fr}:{enc}", style="primary", emoji_id="5253539825360843975"))
 
     rows = [row(
-        btn("🔍 sᴇᴀʀᴄʜ",  switch_current=f"col.{user_id}",              style="primary", emoji_id="5249244862359812334"),
-        btn("🎨 ғɪʟᴛᴇʀ",   callback_data=f"hmode:{user_id}",             style="success", emoji_id="5238162283368035495"),
+        btn("🎨 ғɪʟᴛᴇʀ", callback_data=f"hmode:{user_id}", style="success", emoji_id="5238162283368035495"),
     )]
     if nav:
         rows.append(nav)
@@ -130,88 +131,110 @@ async def get_display_waifu(user_id: int, waifus: list) -> dict | None:
     return random.choice(waifus) if waifus else None
 
 
+async def _send_harem(message_or_cq, user_id: int, name: str, page: int = 0,
+                       filter_rarity: str | None = None, search: str = ""):
+    """Shared render helper for both /harem command and pagination callbacks."""
+    waifus = await get_user_collection(user_id)
+    if not waifus:
+        txt = f"<b>{escape(name)}</b> has no waifus yet! 😢\nUse /hclaim to get your first one."
+        if hasattr(message_or_cq, "reply_text"):
+            return await message_or_cq.reply_text(txt, parse_mode=enums.ParseMode.HTML)
+        return await message_or_cq.answer("No waifus found!", show_alert=True)
+
+    # Apply name search filter if provided
+    pool = waifus
+    if search:
+        s = search.lower()
+        pool = [w for w in waifus if s in w.get("name", "").lower()
+                or s in w.get("anime_name", "").lower()
+                or s in w.get("event_tag", "").lower()]
+
+    text, total_pages = await build_harem_text(name, pool, page, filter_rarity)
+    if search:
+        text = f"🔍 <b>Search:</b> <i>{escape(search)}</i>\n" + text
+
+    raw_kb  = build_harem_raw_kb(page, total_pages, user_id, filter_rarity, search)
+    display = await get_display_waifu(user_id, waifus)
+
+    is_msg = hasattr(message_or_cq, "reply_text")
+
+    if is_msg:
+        if display and display.get("img_url"):
+            msg = await message_or_cq.reply_photo(
+                photo=display["img_url"],
+                caption=text,
+                reply_markup=to_pyrogram(raw_kb),
+                parse_mode=enums.ParseMode.HTML,
+            )
+        else:
+            msg = await message_or_cq.reply_text(
+                text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML
+            )
+        await inject_styled(msg.chat.id, msg.id, raw_kb)
+
+        async def _auto_delete():
+            await asyncio.sleep(AUTO_DELETE)
+            try:
+                await msg.delete()
+            except Exception:
+                pass
+        asyncio.create_task(_auto_delete())
+    else:
+        # callback query — edit existing message
+        cq = message_or_cq
+        try:
+            if display and display.get("img_url"):
+                await cq.message.edit_media(
+                    media=InputMediaPhoto(display["img_url"], caption=text,
+                                         parse_mode=enums.ParseMode.HTML),
+                    reply_markup=to_pyrogram(raw_kb),
+                )
+            else:
+                await cq.message.edit_text(
+                    text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML
+                )
+        except Exception:
+            pass
+        await inject_styled(cq.message.chat.id, cq.message.id, raw_kb)
+        await cq.answer()
+
+
 @app.on_message(filters.command(["harem", "collection"]))
 async def harem_handler(client: Client, message: Message):
     user_id = message.from_user.id
+    # args after command = optional name search
+    args = " ".join(message.command[1:]).strip()
 
-    if message.reply_to_message:
+    if message.reply_to_message and message.reply_to_message.from_user:
         target  = message.reply_to_message.from_user
         user_id = target.id
         name    = target.first_name
     else:
         name = message.from_user.first_name
 
-    waifus = await get_user_collection(user_id)
-    if not waifus:
-        return await message.reply_text(
-            f"<b>{escape(name)}</b> has no waifus yet! 😢\nUse /hclaim to get your first one.",
-            parse_mode=enums.ParseMode.HTML,
-        )
-
     filter_rarity = await get_user_filter(user_id)
-    text, total_pages = await build_harem_text(name, waifus, 0, filter_rarity)
-    raw_kb  = build_harem_raw_kb(0, total_pages, user_id, filter_rarity)
-    display = await get_display_waifu(user_id, waifus)
-
-    if display and display.get("img_url"):
-        msg = await message.reply_photo(
-            photo=display["img_url"],
-            caption=text,
-            reply_markup=to_pyrogram(raw_kb),
-            parse_mode=enums.ParseMode.HTML,
-        )
-    else:
-        msg = await message.reply_text(
-            text,
-            reply_markup=to_pyrogram(raw_kb),
-            parse_mode=enums.ParseMode.HTML,
-        )
-
-    await inject_styled(msg.chat.id, msg.id, raw_kb)
-
-    async def _auto_delete():
-        await asyncio.sleep(AUTO_DELETE)
-        try:
-            await msg.delete()
-        except Exception:
-            pass
-
-    asyncio.create_task(_auto_delete())
+    await _send_harem(message, user_id, name, 0, filter_rarity, args)
 
 
 @app.on_callback_query(filters.regex(r"^harem:"))
 async def harem_callback(client: Client, cq: CallbackQuery):
-    _, page, user_id, fr = cq.data.split(":")
-    page          = int(page)
-    user_id       = int(user_id)
+    parts   = cq.data.split(":")
+    page    = int(parts[1])
+    user_id = int(parts[2])
+    fr      = parts[3]
+    search  = parts[4] if len(parts) > 4 else ""
+    search  = "" if search in ("", "_") else search.replace("_", " ")
+
     filter_rarity = None if fr == "None" else fr
 
     if cq.from_user.id != user_id:
         return await cq.answer("This is not your harem! 😤", show_alert=True)
 
-    user   = await client.get_users(user_id)
-    name   = user.first_name
-    waifus = await get_user_collection(user_id)
-    if not waifus:
-        return await cq.answer("No waifus found!", show_alert=True)
+    # Get name from DB (avoids a Telegram API call)
+    doc  = await collectiondb.find_one({"user_id": user_id}, {"first_name": 1})
+    name = (doc or {}).get("first_name", "User")
 
-    text, total_pages = await build_harem_text(name, waifus, page, filter_rarity)
-    raw_kb  = build_harem_raw_kb(page, total_pages, user_id, filter_rarity)
-    display = await get_display_waifu(user_id, waifus)
-
-    try:
-        if display and display.get("img_url"):
-            await cq.message.edit_media(
-                media=InputMediaPhoto(display["img_url"], caption=text, parse_mode=enums.ParseMode.HTML),
-                reply_markup=to_pyrogram(raw_kb),
-            )
-        else:
-            await cq.message.edit_text(text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML)
-    except Exception:
-        pass
-
-    await inject_styled(cq.message.chat.id, cq.message.id, raw_kb)
-    await cq.answer()
+    await _send_harem(cq, user_id, name, page, filter_rarity, search)
 
 
 @app.on_message(filters.command("hmode"))

@@ -27,6 +27,10 @@ haremdb       = mongodb.harem
 favdb         = mongodb.favourites
 uploaddb      = mongodb.uploaded_waifus  # sudo-uploaded waifus (fallback pool)
 
+# Commands with daily limits
+namedb        = mongodb.name_usage       # /name daily usage tracker
+proposedb     = mongodb.propose_usage    # /propose daily usage tracker
+
 # Economy
 balancedb     = mongodb.balance         # coins, tokens, sakura
 shopdb        = mongodb.shop

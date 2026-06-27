@@ -30,15 +30,16 @@ GLOBAL_COOLDOWN = 2       # sec between any spawn across all groups
 MEM_LIMIT = 10_000
 
 # ── In-memory ─────────────────────────────────────────────────────────────────
-message_counts:   dict  = {}    # chat_id → count
-spawn_targets:    dict  = {}    # chat_id → target count
-active_spawns:    dict  = {}    # chat_id → waifu data (imported by guess.py)
-_user_timestamps: dict  = {}    # (chat_id, user_id) → [timestamps]
-_blocked_users:   dict  = {}    # (chat_id, user_id) → unblock_time
-_warned_users:    set   = set() # (chat_id, user_id) already warned this block
-_chat_last_spawn: dict  = {}    # chat_id → last spawn timestamp
-_last_global_spawn: list = [0]  # mutable container so inner funcs can write
-_use_api_next:    list  = [True] # alternating flag: True = try API first
+message_counts:    dict  = {}    # chat_id → count
+spawn_targets:     dict  = {}    # chat_id → target count
+active_spawns:     dict  = {}    # chat_id → waifu data (imported by guess.py)
+spawn_message_map: dict  = {}    # (chat_id, message_id) → waifu data (for /name)
+_user_timestamps:  dict  = {}    # (chat_id, user_id) → [timestamps]
+_blocked_users:    dict  = {}    # (chat_id, user_id) → unblock_time
+_warned_users:     set   = set() # (chat_id, user_id) already warned this block
+_chat_last_spawn:  dict  = {}    # chat_id → last spawn timestamp
+_last_global_spawn: list = [0]   # mutable container so inner funcs can write
+_use_api_next:     list  = [True] # alternating flag: True = try API first
 
 
 # ── Memory cleanup ────────────────────────────────────────────────────────────
@@ -249,17 +250,21 @@ async def spawn_waifu(client: Client, chat_id: int):
             parse_mode=enums.ParseMode.HTML,
         )
 
-        active_spawns[chat_id] = {
+        waifu_entry = {
             **waifu,
             "message_id": msg.id,
             "chat_id":    chat_id,
             "timestamp":  time.time(),
         }
+        active_spawns[chat_id] = waifu_entry
+        # Store for /name command (keyed by message so it survives after guess)
+        spawn_message_map[(chat_id, msg.id)] = waifu_entry
 
         await asyncio.sleep(SPAWN_TIMEOUT)
 
         if chat_id in active_spawns and active_spawns[chat_id].get("message_id") == msg.id:
             active_spawns.pop(chat_id, None)
+            # Keep spawn_message_map entry a bit longer so /name still works after timeout
             try:
                 await msg.edit_caption(
                     f"💨 <b>{sc('The waifu ran away')}!</b>\n"
