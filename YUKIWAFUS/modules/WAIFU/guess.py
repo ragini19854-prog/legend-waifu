@@ -10,6 +10,7 @@ from pyrogram.types import (
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb, balancedb, game_statsdb
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.rarity import rarity_emoji as _rarity_emoji
 from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled
 
 from YUKIWAFUS.modules.WAIFU.spawn import active_spawns, _blocked_users
@@ -20,15 +21,6 @@ cooldowns:     dict = {}
 COOLDOWN_SEC  = 10
 COINS_REWARD  = 40
 WAIFU_TIMEOUT = 120
-
-RARITY_EMOJI = {
-    "Common":    "⚪",
-    "Uncommon":  "🟢",
-    "Rare":      "🔵",
-    "Epic":      "🟣",
-    "Legendary": "🟡",
-    "Mythic":    "🔴",
-}
 
 
 def _on_cooldown(user_id: int) -> bool:
@@ -163,7 +155,7 @@ async def guess_handler(client: Client, message: Message):
     waifu        = active_spawns[chat_id]
     correct_name = waifu.get("name", "")
     rarity       = waifu.get("rarity", "Common")
-    emoji        = RARITY_EMOJI.get(rarity, "◈")
+    emoji        = _rarity_emoji(rarity)
     waifu_id     = waifu.get("waifu_id", "N/A")
 
     _set_cooldown(user_id)

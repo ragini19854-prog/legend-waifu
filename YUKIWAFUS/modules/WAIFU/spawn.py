@@ -7,9 +7,10 @@ from pyrogram.types import Message
 
 import config
 from YUKIWAFUS import app
-from YUKIWAFUS.database.Mangodb import chatsdb
+from YUKIWAFUS.database.Mangodb import chatsdb, uploaddb
 from YUKIWAFUS.utils.api import get_random_waifu
 from YUKIWAFUS.utils.helpers import sc
+from YUKIWAFUS.utils.rarity import rarity_emoji
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SPAWN_AFTER   = 20
@@ -28,15 +29,6 @@ GLOBAL_COOLDOWN = 2       # sec between any spawn across all groups
 # ── Memory leak guard ─────────────────────────────────────────────────────────
 MEM_LIMIT = 10_000
 
-RARITY_EMOJI = {
-    "Common":    "⚪",
-    "Uncommon":  "🟢",
-    "Rare":      "🔵",
-    "Epic":      "🟣",
-    "Legendary": "🟡",
-    "Mythic":    "🔴",
-}
-
 # ── In-memory ─────────────────────────────────────────────────────────────────
 message_counts:   dict  = {}    # chat_id → count
 spawn_targets:    dict  = {}    # chat_id → target count
@@ -46,6 +38,7 @@ _blocked_users:   dict  = {}    # (chat_id, user_id) → unblock_time
 _warned_users:    set   = set() # (chat_id, user_id) already warned this block
 _chat_last_spawn: dict  = {}    # chat_id → last spawn timestamp
 _last_global_spawn: list = [0]  # mutable container so inner funcs can write
+_use_api_next:    list  = [True] # alternating flag: True = try API first
 
 
 # ── Memory cleanup ────────────────────────────────────────────────────────────
@@ -186,9 +179,47 @@ async def _delete_later(msg, delay: int):
         pass
 
 
+# ── Uploaded-waifu pool ───────────────────────────────────────────────────────
+async def _get_random_uploaded_waifu() -> dict | None:
+    """Fetch one random waifu from the sudo-uploaded MongoDB pool."""
+    try:
+        count = await uploaddb.count_documents({})
+        if count == 0:
+            return None
+        skip  = random.randint(0, count - 1)
+        doc   = await uploaddb.find_one({}, skip=skip)
+        if doc:
+            doc.pop("_id", None)
+        return doc
+    except Exception:
+        return None
+
+
+async def _get_next_waifu() -> dict | None:
+    """
+    Alternate between API and MongoDB-uploaded waifus each spawn.
+    Falls back to the other source if the primary returns nothing.
+    """
+    use_api = _use_api_next[0]
+    _use_api_next[0] = not use_api          # flip for next spawn
+
+    if use_api:
+        waifu = await get_random_waifu()
+        if waifu:
+            return waifu
+        # API exhausted/failed → fall back to uploaded pool
+        return await _get_random_uploaded_waifu()
+    else:
+        waifu = await _get_random_uploaded_waifu()
+        if waifu:
+            return waifu
+        # Uploaded pool empty → fall back to API
+        return await get_random_waifu()
+
+
 # ── Spawn Logic ───────────────────────────────────────────────────────────────
 async def spawn_waifu(client: Client, chat_id: int):
-    waifu = await get_random_waifu()
+    waifu = await _get_next_waifu()
     if not waifu:
         return
 
@@ -199,7 +230,7 @@ async def spawn_waifu(client: Client, chat_id: int):
         pass
 
     rarity = waifu.get("rarity", "Common")
-    emoji  = RARITY_EMOJI.get(rarity, "◈")
+    emoji  = rarity_emoji(rarity)
 
     caption = (
         f"<blockquote>"

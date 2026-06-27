@@ -25,6 +25,7 @@ waifudb       = mongodb.waifus          # all waifu characters
 collectiondb  = mongodb.user_collection # user waifu collections
 haremdb       = mongodb.harem
 favdb         = mongodb.favourites
+uploaddb      = mongodb.uploaded_waifus  # sudo-uploaded waifus (fallback pool)
 
 # Economy
 balancedb     = mongodb.balance         # coins, tokens, sakura

@@ -14,16 +14,20 @@ from pyrogram.types import (
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb
 from YUKIWAFUS.utils.api import find_waifu, get_random_waifu
+from YUKIWAFUS.utils.rarity import rarity_emoji as _rarity_emoji
 from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled, edit_styled_markup
 
-RARITY_EMOJI = {
-    "Common":    "⚪",
-    "Uncommon":  "🟢",
-    "Rare":      "🔵",
-    "Epic":      "🟣",
-    "Legendary": "🟡",
-    "Mythic":    "🔴",
-}
+# Keep a local alias so existing references to RARITY_EMOJI["X"] still work
+class _RarityProxy:
+    def get(self, key, default="◈"):
+        return _rarity_emoji(key) or default
+    def __getitem__(self, key):
+        return _rarity_emoji(key) or "◈"
+    def items(self):
+        from YUKIWAFUS.utils.rarity import RARITY_EMOJI as _re
+        return _re.items()
+
+RARITY_EMOJI = _RarityProxy()
 
 ITEMS_PER_PAGE = 15
 AUTO_DELETE    = 180

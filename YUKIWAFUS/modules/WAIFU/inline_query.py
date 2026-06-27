@@ -12,7 +12,11 @@ from pyrogram.types import (
 
 from YUKIWAFUS import app
 from YUKIWAFUS.database.Mangodb import collectiondb
+from YUKIWAFUS.logging import LOGGER
 from YUKIWAFUS.utils.api import find_waifu, get_waifu_list
+from YUKIWAFUS.utils.rarity import rarity_emoji
+
+log = LOGGER(__name__)
 
 RESULTS_PER_PAGE  = 30
 CACHE_TTL_GLOBAL  = 120
@@ -20,15 +24,6 @@ CACHE_TTL_USER    = 30
 
 _global_cache: TTLCache = TTLCache(maxsize=500,  ttl=CACHE_TTL_GLOBAL)
 _user_cache:   TTLCache = TTLCache(maxsize=5000, ttl=CACHE_TTL_USER)
-
-RARITY_EMOJI = {
-    "Common":    "⚪",
-    "Uncommon":  "🟢",
-    "Rare":      "🔵",
-    "Epic":      "🟣",
-    "Legendary": "🟡",
-    "Mythic":    "🔴",
-}
 
 
 async def _get_user_waifus(user_id: int) -> list:
@@ -59,33 +54,42 @@ async def _get_all_global() -> list:
     return results
 
 
+def _is_valid_url(url: str | None) -> bool:
+    """Only HTTP(S) URLs are accepted by Telegram for inline photo results."""
+    if not url:
+        return False
+    return url.startswith("http://") or url.startswith("https://")
+
+
 def _build_collection_caption(waifu: dict, owner_name: str, count: int) -> str:
-    rarity   = waifu.get("rarity", "Common")
-    emoji    = RARITY_EMOJI.get(rarity, "◈")
+    r        = waifu.get("rarity", "Common")
+    emoji    = rarity_emoji(r)
     waifu_id = waifu.get("waifu_id", "N/A")
+    anime    = waifu.get("anime_name") or waifu.get("event_tag", "Standard")
     return (
         f"<blockquote>"
         f"<b>🌸 {escape(owner_name)}'s Collection</b>"
         f"</blockquote>\n\n"
         f"<b>📛 Name :</b> {escape(waifu.get('name', '?'))}\n"
-        f"<b>{emoji} Rarity :</b> {rarity}\n"
-        f"<b>🏷 Tag :</b> {waifu.get('event_tag', 'Standard')}\n"
+        f"<b>{emoji} Rarity :</b> {r}\n"
+        f"<b>🎌 Anime :</b> {escape(anime)}\n"
         f"<b>🆔 ID :</b> <code>{waifu_id}</code>\n"
         f"<b>✖ Count :</b> ×{count}"
     )
 
 
 def _build_global_caption(waifu: dict) -> str:
-    rarity   = waifu.get("rarity", "Common")
-    emoji    = RARITY_EMOJI.get(rarity, "◈")
+    r        = waifu.get("rarity", "Common")
+    emoji    = rarity_emoji(r)
     waifu_id = waifu.get("waifu_id", "N/A")
+    anime    = waifu.get("anime_name") or waifu.get("event_tag", "Standard")
     return (
         f"<blockquote>"
         f"<b>🌸 Waifu Info</b>"
         f"</blockquote>\n\n"
         f"<b>📛 Name :</b> {escape(waifu.get('name', '?'))}\n"
-        f"<b>{emoji} Rarity :</b> {rarity}\n"
-        f"<b>🏷 Tag :</b> {waifu.get('event_tag', 'Standard')}\n"
+        f"<b>{emoji} Rarity :</b> {r}\n"
+        f"<b>🎌 Anime :</b> {escape(anime)}\n"
         f"<b>🆔 ID :</b> <code>{waifu_id}</code>"
     )
 
@@ -101,11 +105,12 @@ def _dedupe_count(waifus: list) -> tuple[list, dict]:
     return list(seen.values()), counts
 
 
-def _empty_result() -> list:
+def _empty_result(hint: str = "") -> list:
+    desc = hint or "Type a name to search globally, or use col.<user_id> for a collection"
     return [
         InlineQueryResultArticle(
             title="🌸 Search waifus...",
-            description="Type a name to search globally, or use col.<user_id> for a collection",
+            description=desc,
             input_message_content=InputTextMessageContent(
                 "<blockquote><b>🌸 Use inline search to find waifus!</b></blockquote>",
                 parse_mode=enums.ParseMode.HTML,
@@ -119,30 +124,42 @@ async def inline_handler(client: Client, query: InlineQuery):
     raw     = query.query.strip()
     offset  = int(query.offset) if query.offset else 0
     results = []
+    next_offset = ""
 
     try:
+        # ── col.<user_id> [optional search] → user's harem ───────────────────
         if raw.startswith("col."):
             parts      = raw.split(" ", 1)
             uid_part   = parts[0][4:]
             search_str = parts[1].lower() if len(parts) > 1 else ""
 
             if not uid_part.lstrip("-").isdigit():
-                return await query.answer(_empty_result(), cache_time=5)
+                return await query.answer(_empty_result("Invalid harem link."), cache_time=5)
 
             user_id    = int(uid_part)
             all_waifus = await _get_user_waifus(user_id)
+
+            if not all_waifus:
+                return await query.answer(
+                    _empty_result("This user has no waifus yet!"), cache_time=10
+                )
 
             if search_str:
                 all_waifus = [
                     w for w in all_waifus
                     if search_str in w.get("name", "").lower()
                     or search_str in w.get("rarity", "").lower()
-                    or search_str in w.get("event_tag", "").lower()
+                    or search_str in (w.get("anime_name") or w.get("event_tag", "")).lower()
                 ]
 
             unique, counts = _dedupe_count(all_waifus)
-            page           = unique[offset: offset + RESULTS_PER_PAGE]
-            next_offset    = str(offset + len(page)) if len(page) == RESULTS_PER_PAGE else ""
+
+            # Only include waifus with a valid public HTTP URL in inline results
+            # (Telegram file_ids are served by spawns/harem, not inline queries)
+            # Filter FIRST, then paginate so offsets are correct
+            url_valid   = [w for w in unique if _is_valid_url(w.get("img_url"))]
+            page        = url_valid[offset: offset + RESULTS_PER_PAGE]
+            next_offset = str(offset + len(page)) if len(page) == RESULTS_PER_PAGE else ""
 
             try:
                 user       = await client.get_users(user_id)
@@ -151,8 +168,6 @@ async def inline_handler(client: Client, query: InlineQuery):
                 owner_name = "User"
 
             for w in page:
-                if not w.get("img_url"):
-                    continue
                 wid     = w.get("waifu_id") or w.get("name", "")
                 count   = counts.get(wid, 1)
                 caption = _build_collection_caption(w, owner_name, count)
@@ -167,15 +182,21 @@ async def inline_handler(client: Client, query: InlineQuery):
                     )
                 )
 
+            if not results and offset == 0:
+                results     = _empty_result("No waifus with shareable images in this collection.")
+                next_offset = ""
+
+        # ── non-empty query → global search ──────────────────────────────────
         elif raw:
             waifus      = await _search_global(raw)
-            page        = waifus[offset: offset + RESULTS_PER_PAGE]
+            # Filter valid HTTP URLs FIRST, then paginate
+            valid       = [w for w in waifus if _is_valid_url(w.get("img_url"))]
+            page        = valid[offset: offset + RESULTS_PER_PAGE]
             next_offset = str(offset + len(page)) if len(page) == RESULTS_PER_PAGE else ""
 
             for w in page:
-                if not w.get("img_url"):
-                    continue
                 caption = _build_global_caption(w)
+                r       = w.get("rarity", "")
                 results.append(
                     InlineQueryResultPhoto(
                         photo_url=w["img_url"],
@@ -183,19 +204,25 @@ async def inline_handler(client: Client, query: InlineQuery):
                         caption=caption,
                         parse_mode=enums.ParseMode.HTML,
                         title=w.get("name", "?"),
-                        description=f"{RARITY_EMOJI.get(w.get('rarity',''), '◈')} {w.get('rarity', '')} · {w.get('event_tag', 'Standard')}",
+                        description=f"{rarity_emoji(r)} {r} · {w.get('anime_name') or w.get('event_tag', 'Standard')}",
                     )
                 )
 
+            if not results and offset == 0:
+                results     = _empty_result(f'No results for "{raw}".')
+                next_offset = ""
+
+        # ── empty query → browse global pool ─────────────────────────────────
         else:
             waifus      = await _get_all_global()
-            page        = waifus[offset: offset + RESULTS_PER_PAGE]
+            # Filter valid HTTP URLs FIRST, then paginate
+            valid       = [w for w in waifus if _is_valid_url(w.get("img_url"))]
+            page        = valid[offset: offset + RESULTS_PER_PAGE]
             next_offset = str(offset + len(page)) if len(page) == RESULTS_PER_PAGE else ""
 
             for w in page:
-                if not w.get("img_url"):
-                    continue
                 caption = _build_global_caption(w)
+                r       = w.get("rarity", "")
                 results.append(
                     InlineQueryResultPhoto(
                         photo_url=w["img_url"],
@@ -203,13 +230,13 @@ async def inline_handler(client: Client, query: InlineQuery):
                         caption=caption,
                         parse_mode=enums.ParseMode.HTML,
                         title=w.get("name", "?"),
-                        description=f"{RARITY_EMOJI.get(w.get('rarity',''), '◈')} {w.get('rarity', '')}",
+                        description=f"{rarity_emoji(r)} {r}",
                     )
                 )
 
-        if not results and offset == 0:
-            results = _empty_result()
-            next_offset = ""
+            if not results and offset == 0:
+                results     = _empty_result()
+                next_offset = ""
 
         await query.answer(
             results,
@@ -218,6 +245,9 @@ async def inline_handler(client: Client, query: InlineQuery):
             is_personal=raw.startswith("col."),
         )
 
-    except Exception:
-        await query.answer(_empty_result(), cache_time=5)
-            
+    except Exception as exc:
+        log.error(f"inline_handler error for query={raw!r}: {exc}", exc_info=True)
+        try:
+            await query.answer(_empty_result(), cache_time=5)
+        except Exception:
+            pass
