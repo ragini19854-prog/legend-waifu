@@ -30,6 +30,8 @@ uploaddb      = mongodb.uploaded_waifus  # sudo-uploaded waifus (fallback pool)
 # Commands with daily limits
 namedb        = mongodb.name_usage       # /name daily usage tracker
 proposedb     = mongodb.propose_usage    # /propose daily usage tracker
+marriagedb    = mongodb.marriages        # /marry waifu marriage records
+premiumdb     = mongodb.premium_users    # owner-granted premium subscriptions
 
 # Economy
 balancedb     = mongodb.balance         # coins, tokens, sakura

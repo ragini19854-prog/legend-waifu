@@ -1,14 +1,14 @@
 import asyncio
+import re
 import time
 from html import escape
 
 from pyrogram import Client, enums, filters
-from pyrogram.types import (
-    Message,
-)
+from pyrogram.types import Message
 
+import config
 from YUKIWAFUS import app
-from YUKIWAFUS.database.Mangodb import collectiondb, balancedb, game_statsdb
+from YUKIWAFUS.database.Mangodb import collectiondb, balancedb, game_statsdb, usersdb, gbansdb
 from YUKIWAFUS.utils.helpers import sc
 from YUKIWAFUS.utils.rarity import rarity_emoji as _rarity_emoji
 from YUKIWAFUS.utils.styled_buttons import btn, row, to_pyrogram, inject_styled
@@ -31,6 +31,13 @@ def _remaining_cd(user_id: int) -> int:
 
 def _set_cooldown(user_id: int):
     cooldowns[user_id] = time.time()
+
+async def _is_gbanned(user_id: int) -> bool:
+    return bool(await gbansdb.find_one({"user_id": user_id}))
+
+async def _dm_started(user_id: int) -> bool:
+    """True if user has /start-ed the bot in DM (exists in usersdb)."""
+    return bool(await usersdb.find_one({"user_id": user_id}))
 
 
 def _spam_blocked(chat_id: int, user_id: int) -> int:
@@ -90,12 +97,11 @@ async def _inc_guesses(user_id: int):
     )
 
 
-@app.on_message(filters.command(["guess", "grab", "hunt", "collect", "protecc"]))
-async def guess_handler(client: Client, message: Message):
+async def _process_guess(client, message: Message, guess: str):
+    """Core guess logic shared by /guess and !guess."""
     chat_id = message.chat.id
     user    = message.from_user
     user_id = user.id
-
     mention = f"<a href='tg://user?id={user_id}'>{escape(user.first_name)}</a>"
 
     block_remaining = _spam_blocked(chat_id, user_id)
@@ -142,7 +148,6 @@ async def guess_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
-    guess = " ".join(message.command[1:]).strip()
     if not guess:
         return await message.reply_text(
             f"<blockquote>"
@@ -175,7 +180,7 @@ async def guess_handler(client: Client, message: Message):
         )
         await _inc_guesses(user_id)
 
-        raw_kb = [row(btn(f"🌸 {sc('My Harem')}", switch_current=f"col.{user_id}", style="success", emoji_id="6291837599254322363"))]
+        raw_kb = [row(btn(f"🌸 {sc('My Harem')}", callback_data=f"open_harem:{user_id}", style="success", emoji_id="6291837599254322363"))]
 
         msg = await message.reply_photo(
             photo=waifu["img_url"],
@@ -196,7 +201,6 @@ async def guess_handler(client: Client, message: Message):
             reply_markup=to_pyrogram(raw_kb),
         )
         await inject_styled(msg.chat.id, msg.id, raw_kb)
-
     else:
         msg_id   = waifu.get("message_id")
         raw_kb   = None
@@ -215,3 +219,57 @@ async def guess_handler(client: Client, message: Message):
         )
         if raw_kb:
             await inject_styled(msg.chat.id, msg.id, raw_kb)
+
+
+@app.on_message(filters.command(["guess", "grab", "hunt", "collect", "protecc"]))
+async def guess_handler(client: Client, message: Message):
+    user_id = message.from_user.id
+    if await _is_gbanned(user_id):
+        return
+    guess = " ".join(message.command[1:]).strip()
+    await _process_guess(client, message, guess)
+
+
+# ── !guess <name> — works in groups without /start in DM ─────────────────────
+
+@app.on_message(filters.group & filters.regex(r"^!guess\s+([\s\S]+)", re.IGNORECASE))
+async def bang_guess_handler(client: Client, message: Message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+
+    if await _is_gbanned(user_id):
+        return
+
+    # Gate: user must have /start-ed bot in DM
+    if not await _dm_started(user_id):
+        bot_me = await client.get_me()
+        return await message.reply_text(
+            f"<blockquote>"
+            f"<emoji id='6001602353843672777'>⚠️</emoji> "
+            f"<b>To use this bot, start it in DM first!</b>\n\n"
+            f"Click the button below, then come back and try again~"
+            f"</blockquote>",
+            parse_mode=enums.ParseMode.HTML,
+            reply_markup=__import__("pyrogram.types", fromlist=["InlineKeyboardMarkup", "InlineKeyboardButton"]).InlineKeyboardMarkup([[
+                __import__("pyrogram.types", fromlist=["InlineKeyboardButton"]).InlineKeyboardButton(
+                    "✨ Start Bot in DM",
+                    url=f"https://t.me/{bot_me.username}?start=hi"
+                )
+            ]]),
+        )
+
+    # Extract the guess text (everything after "!guess ")
+    m = re.match(r"^!guess\s+([\s\S]+)", message.text or "", re.IGNORECASE)
+    guess = m.group(1).strip() if m else ""
+    await _process_guess(client, message, guess)
+
+
+# ── open_harem shortcut callback (from guess win button) ─────────────────────
+
+@app.on_callback_query(filters.regex(r"^open_harem:"))
+async def open_harem_cb(client, cq):
+    user_id = int(cq.data.split(":")[1])
+    if cq.from_user.id != user_id:
+        return await cq.answer("Not your harem!", show_alert=True)
+    await cq.answer("Open /harem in chat to view your collection~", show_alert=True)

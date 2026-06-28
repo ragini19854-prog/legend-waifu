@@ -183,18 +183,29 @@ async def _send_harem(message_or_cq, user_id: int, name: str, page: int = 0,
         # callback query — edit existing message
         cq = message_or_cq
         try:
-            if display and display.get("img_url"):
+            has_photo = bool(cq.message.photo)
+            if display and display.get("img_url") and has_photo:
                 await cq.message.edit_media(
                     media=InputMediaPhoto(display["img_url"], caption=text,
                                          parse_mode=enums.ParseMode.HTML),
                     reply_markup=to_pyrogram(raw_kb),
+                )
+            elif display and display.get("img_url") and not has_photo:
+                # Message is text-only; can't switch to photo — edit text instead
+                await cq.message.edit_text(
+                    text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML
                 )
             else:
                 await cq.message.edit_text(
                     text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML
                 )
         except Exception:
-            pass
+            try:
+                await cq.message.edit_text(
+                    text, reply_markup=to_pyrogram(raw_kb), parse_mode=enums.ParseMode.HTML
+                )
+            except Exception:
+                pass
         await inject_styled(cq.message.chat.id, cq.message.id, raw_kb)
         await cq.answer()
 
@@ -230,9 +241,8 @@ async def harem_callback(client: Client, cq: CallbackQuery):
     if cq.from_user.id != user_id:
         return await cq.answer("This is not your harem! 😤", show_alert=True)
 
-    # Get name from DB (avoids a Telegram API call)
-    doc  = await collectiondb.find_one({"user_id": user_id}, {"first_name": 1})
-    name = (doc or {}).get("first_name", "User")
+    # Use first_name from the callback sender (always available, no DB call)
+    name = cq.from_user.first_name or "User"
 
     await _send_harem(cq, user_id, name, page, filter_rarity, search)
 

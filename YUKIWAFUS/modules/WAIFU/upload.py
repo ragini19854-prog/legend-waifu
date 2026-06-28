@@ -19,13 +19,33 @@ from pyrogram.types import Message
 
 import config
 from YUKIWAFUS import app
-from YUKIWAFUS.database.Mangodb import uploaddb
+from YUKIWAFUS.database.Mangodb import uploaddb, sudoersdb
 from YUKIWAFUS.logging import LOGGER
 from YUKIWAFUS.utils.rarity import rarity_by_number, rarity_display_list, rarity_emoji
 
 log = LOGGER(__name__)
 
-_SUDO_ALL = config.SUDO_USERS + [config.OWNER_ID]
+_OWNER_ID = config.OWNER_ID
+
+
+async def _is_sudo(user_id: int) -> bool:
+    """Runtime sudo check — covers both config SUDO_USERS and DB-added sudoers."""
+    if user_id == _OWNER_ID:
+        return True
+    if user_id in config.SUDO_USERS:
+        return True
+    return bool(await sudoersdb.find_one({"user_id": user_id}))
+
+
+def _sudo_filter():
+    async def _check(_, __, message):
+        if not message.from_user:
+            return False
+        return await _is_sudo(message.from_user.id)
+    return filters.create(_check)
+
+
+_sudo_only = _sudo_filter()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -67,7 +87,7 @@ async def _next_id() -> str:
 
 @app.on_message(
     filters.command("upload")
-    & filters.user(_SUDO_ALL)
+    & _sudo_only
 )
 async def upload_handler(client: Client, message: Message):
     # ── Gate: only allowed inside the UPLOAD_LOGGER channel ──────────────────
@@ -201,11 +221,58 @@ async def upload_handler(client: Client, message: Message):
         await processing.edit_text(f"❌ Upload failed: {e}")
 
 
+# ── /dlupload command ─────────────────────────────────────────────────────────
+
+@app.on_message(filters.command("dlupload") & _sudo_only)
+async def dlupload_handler(client: Client, message: Message):
+    """
+    /dlupload <UPL-XXXX>
+    Delete an incorrectly uploaded waifu from the database.
+    """
+    if len(message.command) < 2:
+        return await message.reply_text(
+            "<blockquote>⚠️ <b>Usage:</b> <code>/dlupload UPL-XXXX</code></blockquote>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+    waifu_id = message.command[1].strip().upper()
+
+    doc = await uploaddb.find_one({"waifu_id": waifu_id})
+    if not doc:
+        return await message.reply_text(
+            f"<blockquote>❌ <b>No waifu found with ID</b> <code>{waifu_id}</code></blockquote>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+    name       = doc.get("name", "?")
+    anime_name = doc.get("anime_name", "?")
+    rarity     = doc.get("rarity", "?")
+
+    result = await uploaddb.delete_one({"waifu_id": waifu_id})
+
+    if result.deleted_count:
+        await message.reply_text(
+            f"<blockquote>✅ <b>Waifu Deleted!</b></blockquote>\n\n"
+            f"📛 <b>Name:</b> {escape(name)}\n"
+            f"🎌 <b>Anime:</b> {escape(anime_name)}\n"
+            f"✨ <b>Rarity:</b> {rarity}\n"
+            f"🆔 <b>ID:</b> <code>{waifu_id}</code>\n\n"
+            f"<i>Removed from spawn pool permanently.</i>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+        log.info(f"[dlupload] Deleted waifu {waifu_id} ({name}) by {message.from_user.id}")
+    else:
+        await message.reply_text(
+            f"<blockquote>❌ <b>Failed to delete</b> <code>{waifu_id}</code>. Try again.</blockquote>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+
 # ── /rarity command ───────────────────────────────────────────────────────────
 
 @app.on_message(
     filters.command("rarity")
-    & filters.user(_SUDO_ALL)
+    & _sudo_only
 )
 async def rarity_handler(client: Client, message: Message):
     """Show the full rarity list with numbers and emojis."""

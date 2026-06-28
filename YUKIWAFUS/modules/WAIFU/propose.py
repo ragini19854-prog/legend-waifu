@@ -57,17 +57,20 @@ async def propose_handler(client: Client, message: Message):
     user    = message.from_user
     user_id = user.id
 
-    if await _used_today(user_id):
-        return await message.reply_text(
-            f"<blockquote>"
-            f"<emoji id='{E_WARNING}'>⚠️</emoji> <b>You've already proposed today!</b>\n\n"
-            f"<emoji id='{E_SNOW}'>❄️</emoji> Come back tomorrow to try your luck again~"
-            f"</blockquote>",
-            parse_mode=enums.ParseMode.HTML,
-        )
+    # ── Owner: unlimited, no daily gate ─────────────────────────────────────
+    import config as _cfg
+    is_owner = (user_id == _cfg.OWNER_ID)
 
-    await _mark_used(user_id)
-
+    if not is_owner:
+        if await _used_today(user_id):
+            return await message.reply_text(
+                f"<blockquote>"
+                f"<emoji id='{E_WARNING}'>⚠️</emoji> <b>You've already proposed today!</b>\n\n"
+                f"<emoji id='{E_SNOW}'>❄️</emoji> Come back tomorrow to try your luck again~"
+                f"</blockquote>",
+                parse_mode=enums.ParseMode.HTML,
+            )
+        await _mark_used(user_id)
     # ── 50 / 50 ───────────────────────────────────────────────────────────────
     if random.random() < 0.5:
         # ── Failure ───────────────────────────────────────────────────────────

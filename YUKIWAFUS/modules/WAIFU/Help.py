@@ -97,14 +97,44 @@ _HELP = {
         "<b>/hclaim</b> — <code>ᴄʟᴀɪᴍ ʏᴏᴜʀ ᴅᴀɪʟʏ ᴡᴀɪғᴜ + ᴄᴏɪɴs</code>\n"
         "<emoji id='6294063539069917326'>⚡</emoji> "
         "<b>/guess</b> <code>&lt;name&gt;</code> — <code>ɢᴜᴇss sᴘᴀᴡɴᴇᴅ ᴡᴀɪғᴜ</code>\n"
+        "<emoji id='5325547803936572038'>✨</emoji> "
+        "<b>!guess</b> <code>&lt;name&gt;</code> — <code>ɢᴜᴇss ᴡɪᴛʜᴏᴜᴛ sʟᴀsʜ (ɢʀᴏᴜᴘs)</code>\n"
         "<emoji id='5249244862359812334'>📚</emoji> "
         "<b>/harem</b> — <code>ᴠɪᴇᴡ ʏᴏᴜʀ ᴡᴀɪғᴜ ᴄᴏʟʟᴇᴄᴛɪᴏɴ</code>\n"
+        "<emoji id='5231012545799666522'>🔍</emoji> "
+        "<b>/name</b> — <code>ʀᴇᴘʟʏ ᴛᴏ sᴘᴀᴡɴ ᴛᴏ ɪᴅᴇɴᴛɪғʏ ᴡᴀɪғᴜ</code>\n"
         "<emoji id='6291837599254322363'>💖</emoji> "
         "<b>/fav</b> <code>&lt;waifu_id&gt;</code> — <code>ᴀᴅᴅ ᴛᴏ ғᴀᴠᴏᴜʀɪᴛᴇs</code>\n"
         "<emoji id='5238162283368035495'>🎴</emoji> "
         "<b>/spawnon</b> / <b>/spawnoff</b> — <code>ᴛᴏɢɢʟᴇ ᴡᴀɪғᴜ sᴘᴀᴡɴ</code>\n"
         "<emoji id='6294023338176028117'>🔧</emoji> "
         "<b>/setspawn</b> <code>&lt;n&gt;</code> — <code>sᴘᴀᴡɴ ᴇᴠᴇʀʏ ɴ ᴍᴇssᴀɢᴇs</code>"
+        "</blockquote>"
+    ),
+
+    "aura": (
+        "┌─── ˹ <b>✨ ᴀᴜʀᴀ ᴄᴏᴍᴍᴀɴᴅs</b> ˼ ───●\n\n"
+        "<blockquote>"
+        "<emoji id='5231012545799666522'>🔍</emoji> "
+        "<b>/name</b> — <code>ʀᴇᴘʟʏ ᴛᴏ sᴘᴀᴡɴ · ɪᴅᴇɴᴛɪғʏ ᴡᴀɪғᴜ ᴅᴇᴛᴀɪʟs</code>\n"
+        "<emoji id='5427168083074628963'>💎</emoji> "
+        "<b>/namepay</b> — <code>sᴘᴇɴᴅ ᴄᴏɪɴs ғᴏʀ 1 ᴇxᴛʀᴀ /ɴᴀᴍᴇ ᴜsᴇ</code>\n"
+        "<emoji id='5424972470023104089'>🔥</emoji> "
+        "<b>/namepremium</b> — <code>ʙᴜʏ 15 /ɴᴀᴍᴇ ᴜsᴇs ᴛᴏᴅᴀʏ</code>\n\n"
+        "<emoji id='5461151367559141950'>🎉</emoji> "
+        "<b>/propose</b> — <code>50/50 ᴄʜᴀɴᴄᴇ ᴛᴏ ᴡɪɴ ᴀ ᴡᴀɪғᴜ</code>\n\n"
+        "<emoji id='5206607081334906820'>✔️</emoji> "
+        "<b>/marry</b> — <code>sᴘᴀᴡɴ ᴀ ᴡᴀɪғᴜ ᴛᴏ ᴍᴀʀʀʏ (3ᴅ ᴄᴅ)</code>\n"
+        "<emoji id='6291837599254322363'>💍</emoji> "
+        "<b>/mymarriage</b> — <code>ᴠɪᴇᴡ ʏᴏᴜʀ ᴍᴀʀʀɪᴇᴅ ᴡᴀɪғᴜ</code>\n"
+        "<emoji id='5210952531676504517'>❌</emoji> "
+        "<b>/divorce</b> — <code>ᴅɪᴠᴏʀᴄᴇ ʏᴏᴜʀ ᴄᴜʀʀᴇɴᴛ ᴡᴀɪғᴜ</code>\n\n"
+        "<emoji id='6294023338176028117'>🎁</emoji> "
+        "<b>/gift</b> <code>&lt;waifu_id&gt;</code> — <code>ɢɪғᴛ ᴀ ᴡᴀɪғᴜ ᴛᴏ ᴀ ᴜsᴇʀ</code>\n\n"
+        "<emoji id='5217822164362739968'>👑</emoji> "
+        "<b>/premiumwaifu</b> — <code>ʙʀᴏᴡsᴇ ᴘʀᴇᴍɪᴜᴍ sʜᴏᴘ (62 ᴡᴀɪғᴜs)</code>\n"
+        "<emoji id='5233326571099534068'>💸</emoji> "
+        "<b>/buywaifu</b> <code>&lt;id&gt;</code> — <code>ʙᴜʏ ᴡᴀɪғᴜ ᴡɪᴛʜ 🌸 ᴄᴏɪɴs</code>"
         "</blockquote>"
     ),
 
@@ -134,8 +164,10 @@ _HELP = {
         "<b>/gift</b> <code>&lt;waifu_id&gt;</code> — <code>ɢɪғᴛ ᴀ ᴡᴀɪғᴜ ᴛᴏ ᴜsᴇʀ</code>\n"
         "<emoji id='5262770659267735289'>🔀</emoji> "
         "<b>/trade</b> <code>&lt;my_id&gt; &lt;their_id&gt;</code> — <code>ᴛʀᴀᴅᴇ ᴡᴀɪғᴜs</code>\n"
-        "<emoji id='6291835288561917135'>🛒</emoji> "
-        "<b>/shop</b> — <code>ʙʀᴏᴡsᴇ ᴛʜᴇ ᴡᴀɪғᴜ sʜᴏᴘ</code>\n"
+        "<emoji id='5217822164362739968'>👑</emoji> "
+        "<b>/premiumwaifu</b> — <code>ᴘʀᴇᴍɪᴜᴍ ᴡᴀɪғᴜ sʜᴏᴘ</code>\n"
+        "<emoji id='5233326571099534068'>💸</emoji> "
+        "<b>/buywaifu</b> <code>&lt;id&gt;</code> — <code>ʙᴜʏ ᴡᴀɪғᴜ ᴡɪᴛʜ 🌸 ᴄᴏɪɴs</code>\n"
         "<emoji id='5238162283368035495'>🎰</emoji> "
         "<b>/gacha</b> — <code>sᴘᴇɴᴅ ᴛᴏᴋᴇɴs ғᴏʀ ʀᴀʀɪᴛʏ ᴘᴜʟʟ</code>"
         "</blockquote>"
@@ -187,20 +219,26 @@ _HELP = {
     "admin": (
         "┌─── ˹ <b>ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs</b> ˼ ───●\n\n"
         "<blockquote>"
-        "<emoji id='6294023338176028117'>🌸</emoji> "
+        "<emoji id='6291837599254322363'>🌸</emoji> "
         "<b>/addwaifu</b> — <code>ᴀᴅᴅ ᴡᴀɪғᴜ ᴛᴏ ᴅᴀᴛᴀʙᴀsᴇ</code>\n"
+        "<emoji id='5233326571099534068'>💸</emoji> "
+        "<b>/upload</b> — <code>ᴜᴘʟᴏᴀᴅ ᴄᴜsᴛᴏᴍ ᴡᴀɪғᴜ ᴘʜᴏᴛᴏ</code>\n"
+        "<emoji id='5210952531676504517'>❌</emoji> "
+        "<b>/dlupload</b> <code>&lt;UPL-XXXX&gt;</code> — <code>ᴅᴇʟᴇᴛᴇ ᴡʀᴏɴɢ ᴜᴘʟᴏᴀᴅ</code>\n"
         "<emoji id='5262770659267735289'>👑</emoji> "
         "<b>/addsudo</b> / <b>/rmsudo</b> — <code>ᴍᴀɴᴀɢᴇ sᴜᴅᴏ ᴜsᴇʀs</code>\n"
         "<emoji id='6294063539069917326'>📢</emoji> "
         "<b>/broadcast</b> — <code>ʙʀᴏᴀᴅᴄᴀsᴛ ᴛᴏ ᴀʟʟ ᴜsᴇʀs</code>\n"
-        "<emoji id='5998834801472182366'>❌</emoji> "
+        "<emoji id='5447644880824181073'>⚠️</emoji> "
         "<b>/gban</b> / <b>/ungban</b> — <code>ɢʟᴏʙᴀʟ ʙᴀɴ ᴜsᴇʀ</code>\n"
-        "<emoji id='6291837599254322363'>🏷</emoji> "
-        "<b>/addtitle</b> / <b>/deltitle</b> — <code>ᴍᴀɴᴀɢᴇ ᴛɪᴛʟᴇs</code>\n"
-        "<emoji id='6001483331709966655'>💰</emoji> "
-        "<b>/addcoins</b> / <b>/deduct</b> — <code>ᴍᴀɴᴀɢᴇ ᴄᴏɪɴs</code>\n"
-        "<emoji id='5249244862359812334'>🛒</emoji> "
-        "<b>/addshop</b> — <code>ᴀᴅᴅ ᴡᴀɪғᴜ ᴛᴏ sʜᴏᴘ</code>\n"
+        "<emoji id='5334544901428229844'>ℹ️</emoji> "
+        "<b>/gbanned</b> — <code>ʟɪsᴛ ᴀʟʟ ɢ-ʙᴀɴɴᴇᴅ ᴜsᴇʀs</code>\n"
+        "<emoji id='5217822164362739968'>👑</emoji> "
+        "<b>/givewaifu</b> — <code>ɢɪᴠᴇ ᴀɴʏ ᴡᴀɪғᴜ ᴛᴏ ᴜsᴇʀ</code>\n"
+        "<emoji id='5233326571099534068'>💸</emoji> "
+        "<b>/givecoin</b> / <b>/rmcoin</b> — <code>ᴍᴀɴᴀɢᴇ ᴜsᴇʀ ᴄᴏɪɴs</code>\n"
+        "<emoji id='5427168083074628963'>💎</emoji> "
+        "<b>/premium</b> / <b>/unpremium</b> — <code>ɢʀᴀɴᴛ /ɴᴀᴍᴇ sᴜʙ</code>\n"
         "<emoji id='6291835288561917135'>⚡</emoji> "
         "<b>/fspawn</b> — <code>ғᴏʀᴄᴇ sᴘᴀᴡɴ ᴀ ᴡᴀɪғᴜ</code>"
         "</blockquote>"
@@ -236,16 +274,17 @@ def _help_main_panel(back_to_start: bool = False) -> list:
     rows = [
         [
             btn("🎴 ᴡᴀɪғᴜ",    callback_data="help_cat waifu",   style="primary",  emoji_id="6291837599254322363"),
+            btn("✨ ᴀᴜʀᴀ",     callback_data="help_cat aura",    style="success",  emoji_id="5325547803936572038"),
             btn("⚔️ ʙᴀᴛᴛʟᴇ",   callback_data="help_cat battle",  style="danger",   emoji_id="6294023338176028117"),
-            btn("💰 ᴇᴄᴏɴᴏᴍʏ",  callback_data="help_cat economy", style="success",  emoji_id="5249244862359812334"),
         ],
         [
+            btn("💰 ᴇᴄᴏɴᴏᴍʏ",  callback_data="help_cat economy", style="success",  emoji_id="5249244862359812334"),
             btn("🏆 ʀᴀɴᴋ",      callback_data="help_cat rank",    style="primary",  emoji_id="6291835288561917135"),
             btn("🪪 ᴘʀᴏғɪʟᴇ",  callback_data="help_cat profile", style="primary",  emoji_id="5262770659267735289"),
-            btn("🛠 ᴛᴏᴏʟs",     callback_data="help_cat tools",   style="primary",  emoji_id="6294063539069917326"),
         ],
         [
-            btn("👑 ᴀᴅᴍɪɴ",     callback_data="help_cat admin",   style="danger",   emoji_id="6294063539069917326"),
+            btn("🛠 ᴛᴏᴏʟs",     callback_data="help_cat tools",   style="primary",  emoji_id="6294063539069917326"),
+            btn("👑 ᴀᴅᴍɪɴ",     callback_data="help_cat admin",   style="danger",   emoji_id="5217822164362739968"),
             btn("💬 sᴜᴘᴘᴏʀᴛ",  url=config.SUPPORT_CHAT,          style="success",  emoji_id="5206523956537865948"),
         ],
     ]

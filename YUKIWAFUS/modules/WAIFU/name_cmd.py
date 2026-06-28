@@ -14,7 +14,7 @@ from pyrogram.types import Message
 
 import config
 from YUKIWAFUS import app
-from YUKIWAFUS.database.Mangodb import namedb, balancedb
+from YUKIWAFUS.database.Mangodb import namedb, balancedb, premiumdb
 from YUKIWAFUS.utils.rarity import rarity_emoji
 
 FREE_DAILY      = 1
@@ -35,6 +35,7 @@ E_CHECK    = "5206607081334906820"   # ✔️
 E_FIRE     = "5424972470023104089"   # 🔥
 E_INFO     = "5334544901428229844"   # ℹ️
 E_LOCK     = "5296369303661067030"   # 🔒
+E_CROWN    = "5217822164362739968"   # 👑
 
 
 def _today_key() -> str:
@@ -91,6 +92,23 @@ def _waifu_detail_text(waifu: dict) -> str:
     )
 
 
+async def _active_premium_uses(user_id: int) -> int:
+    """Return extra daily uses from owner-granted premium subscription, or 0."""
+    from datetime import timezone as _tz
+    doc = await premiumdb.find_one({"user_id": user_id})
+    if not doc:
+        return 0
+    exp = doc.get("expires_at")
+    if exp:
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=_tz.utc)
+        from datetime import datetime as _dt
+        if _dt.now(_tz.utc) > exp:
+            await premiumdb.delete_one({"user_id": user_id})
+            return 0
+    return int(doc.get("daily_uses", PREMIUM_USES))
+
+
 @app.on_message(filters.command("name"))
 async def name_handler(client: Client, message: Message):
     user    = message.from_user
@@ -119,6 +137,14 @@ async def name_handler(client: Client, message: Message):
             parse_mode=enums.ParseMode.HTML,
         )
 
+    # ── Owner: unlimited, free forever ───────────────────────────────────────
+    if user_id == config.OWNER_ID:
+        detail = _waifu_detail_text(waifu)
+        return await message.reply_text(
+            detail + f"\n\n<emoji id='{E_CROWN}'>👑</emoji> <i>Owner — unlimited access</i>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
     usage = await _get_usage(user_id)
 
     if usage["free_used"] < FREE_DAILY:
@@ -127,6 +153,16 @@ async def name_handler(client: Client, message: Message):
         detail = _waifu_detail_text(waifu)
         return await message.reply_text(
             detail + f"\n\n<emoji id='{E_FREE}'>🆓</emoji> <i>Free use today: {usage['free_used']}/{FREE_DAILY}</i>",
+            parse_mode=enums.ParseMode.HTML,
+        )
+
+    # Check owner-granted premium subscription
+    sub_uses = await _active_premium_uses(user_id)
+    if sub_uses > 0:
+        # Use from subscription pool (just notify, don't decrement — subscription is daily reset)
+        detail = _waifu_detail_text(waifu)
+        return await message.reply_text(
+            detail + f"\n\n<emoji id='{E_PREMIUM}'>💎</emoji> <i>Premium subscription active — {sub_uses} uses/day</i>",
             parse_mode=enums.ParseMode.HTML,
         )
 
